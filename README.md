@@ -43,7 +43,7 @@ Use this for offline or intranet distribution.
 
 ### Requirements
 
-- DSH Desktop.
+- DSH Desktop 0.2.1-rc.5 or newer (built and tested on 0.2.1-rc.5).
 - WebGL 2 support; otherwise the preview reports an error.
 - Model files in the session workspace, reachable through **Files** in the right sidebar.
 
