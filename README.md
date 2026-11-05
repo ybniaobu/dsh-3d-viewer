@@ -19,7 +19,7 @@ Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` bundles
 
 1. Open DSH Desktop and choose **Plugins** in the sidebar.
 2. Click **Add plugin** → **Install a third-party plugin**.
-3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.1.0` to pin a version).
+3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.1.1` to pin a version).
 4. Set **Registry** to the official npm registry (npmmirror also works in mainland China).
 5. Click **Install**, then confirm **3D Viewer** is **On** under **Installed plugins**.
 6. Open a model from any session. If no preview appears, refresh the page; if it still does not, restart DSH.

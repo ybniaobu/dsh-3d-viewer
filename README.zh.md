@@ -19,7 +19,7 @@
 
 1. 打开 DSH Desktop，点击侧边栏的 **Plugins（插件）**。
 2. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
-3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.1.0`。
+3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.1.1`。
 4. **Registry** 选择 npm 官方源（国内也可用 npmmirror）。
 5. 点击 **Install**，在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
 6. 回到会话打开模型。若没有出现预览，先刷新页面；仍未出现时重启 DSH。

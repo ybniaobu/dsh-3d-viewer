@@ -1,6 +1,6 @@
 {
   "name": "dsh-3d-viewer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Render FBX, OBJ, glTF, GLB, and STL models from the right Sidebar's workspace file tree in an orbitable 3D view.",
   "keywords": [
     "dsh",
