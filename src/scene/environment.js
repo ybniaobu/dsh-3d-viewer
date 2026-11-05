@@ -5,11 +5,12 @@ import {
   RGBAFormat,
 } from 'three';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
-import { decodeBase64 } from '../bytes.js';
-import { HDRI_DATA_URLS } from '../generated/hdri-data.js';
 
 /** Environment used when an unknown id is requested. */
 export const DEFAULT_ENVIRONMENT = 'nature';
+
+/** Environment ids in rail order; the packaged files are named `<id>.hdr`. */
+export const ENVIRONMENT_IDS = Object.freeze(['nature', 'city', 'indoor', 'studio']);
 
 /** Per-environment IBL strength. */
 export const ENVIRONMENT_INTENSITIES = Object.freeze({
@@ -19,40 +20,61 @@ export const ENVIRONMENT_INTENSITIES = Object.freeze({
   studio: 0.9,
 });
 
+/** Host route that serves the packaged `.hdr` files. Mirrors `index.js`. */
+const HDRI_ROUTE = '/dsh-3d-viewer/hdri/';
+
 /**
- * Resolve an environment id against the embedded HDRI map.
+ * Package version, injected by `build.mjs` so an upgrade changes the URL.
+ * The `typeof` guard keeps an unbuilt Node import (tests) from throwing.
+ */
+const VERSION = typeof __DSH3D_VIEWER_VERSION__ === 'string' ? __DSH3D_VIEWER_VERSION__ : 'dev';
+
+/**
+ * Resolve an environment id against the known environment list.
  *
  * @param {unknown} id Requested environment id.
- * @param {Record<string, string>} dataUrls Embedded data URLs.
  * @returns {string} A known environment id.
  */
-export function normalizeEnvironmentId(id, dataUrls = HDRI_DATA_URLS) {
-  return typeof id === 'string' && Object.hasOwn(dataUrls, id)
+export function normalizeEnvironmentId(id) {
+  return typeof id === 'string' && Object.hasOwn(ENVIRONMENT_INTENSITIES, id)
     ? id
     : DEFAULT_ENVIRONMENT;
 }
 
 /**
- * Decode the base64 payload of an embedded data URL.
+ * Build the URL the host route serves one HDRI from.
  *
- * @param {unknown} dataUrl Embedded data URL.
- * @returns {ArrayBuffer | null} Decoded bytes, or null when the input is not a data URL.
+ * The route is registered on the same origin as the page, so an absolute path
+ * is enough; the version query keeps a packaged upgrade from reusing a stale
+ * immutable response.
+ *
+ * @param {string} id Environment id.
+ * @returns {string} Absolute or same-origin URL.
  */
-export function dataUrlToArrayBuffer(dataUrl) {
-  if (typeof dataUrl !== 'string') return null;
-  const comma = dataUrl.indexOf(',');
-  if (comma < 0) return null;
+export function hdriUrl(id) {
+  const origin = globalThis.location?.origin ?? 'http://localhost';
+  const url = new URL(`${HDRI_ROUTE}${id}.hdr`, origin);
+  url.searchParams.set('v', VERSION);
+  return url.href;
+}
 
-  try {
-    const bytes = decodeBase64(dataUrl.slice(comma + 1));
-    // Reuse the decoder's buffer when it covers the whole payload; copying
-    // multi-megabyte HDRIs is otherwise pure waste.
-    return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
-      ? bytes.buffer
-      : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  } catch {
-    return null;
+/**
+ * Fetch one packaged HDRI.
+ *
+ * The bytes come from the Host's read-only route, not from the client bundle:
+ * this is what keeps the four 1024x512 HDRIs out of `client.js`.
+ *
+ * @param {string} id Environment id.
+ * @returns {Promise<ArrayBuffer>} Raw `.hdr` bytes.
+ */
+async function fetchHdriBytes(id) {
+  if (typeof fetch !== 'function') throw new Error('fetch is unavailable');
+
+  const response = await fetch(hdriUrl(id), { credentials: 'same-origin' });
+  if (!response.ok) {
+    throw new Error(`The HDRI route answered HTTP ${response.status} for "${id}".`);
   }
+  return response.arrayBuffer();
 }
 
 /**
@@ -83,17 +105,20 @@ export function createEquirectangularTexture(buffer, loader = new HDRLoader()) {
 }
 
 /**
- * Lazily build and cache PMREM environment maps for the embedded HDRIs.
+ * Lazily fetch, decode, and prefilter the packaged HDRIs.
  *
- * Only the environments the user selects are decoded; the first environment
- * is built on first use, and repeated selections reuse the cached target.
+ * Only the environments the user selects are built, and each finished PMREM is
+ * cached by id. The first selection fetches its file over the Host route; a
+ * failure logs a warning and leaves the scene without that environment instead
+ * of failing the whole preview.
  *
  * @param {{
  *   renderer: import('three').WebGLRenderer,
  *   scene: import('three').Scene,
- *   dataUrls?: Record<string, string>,
  *   intensities?: Record<string, number>,
- * }} options Renderer, target scene, embedded HDRIs, and per-environment IBL strengths.
+ *   onReady?: () => void,
+ * }} options Renderer, target scene, per-environment IBL strengths, and a
+ * notification for when a requested environment is applied.
  * @returns {{
  *   set: (id: unknown) => boolean,
  *   dispose: () => void,
@@ -103,13 +128,15 @@ export function createEquirectangularTexture(buffer, loader = new HDRLoader()) {
 export function createEnvironment({
   renderer,
   scene,
-  dataUrls = HDRI_DATA_URLS,
   intensities = ENVIRONMENT_INTENSITIES,
+  onReady,
 }) {
   const targets = new Map();
+  const pending = new Map();
   const loader = new HDRLoader();
   let pmremGenerator = null;
   let activeId = null;
+  let requestedId = null;
   let disposed = false;
 
   function getPmremGenerator() {
@@ -117,12 +144,15 @@ export function createEnvironment({
     return pmremGenerator;
   }
 
-  function buildTarget(id) {
-    const dataUrl = dataUrls[id];
-    if (typeof dataUrl !== 'string') return null;
-
-    const buffer = dataUrlToArrayBuffer(dataUrl);
-    if (buffer === null) return null;
+  /**
+   * Fetch and prefilter one environment. Resolves to null on disposal.
+   *
+   * @param {string} id Environment id.
+   * @returns {Promise<import('three').WebGLRenderTarget | null>} PMREM target.
+   */
+  async function buildTarget(id) {
+    const buffer = await fetchHdriBytes(id);
+    if (disposed) return null;
 
     const texture = createEquirectangularTexture(buffer, loader);
     try {
@@ -132,36 +162,78 @@ export function createEnvironment({
     }
   }
 
-  function getTarget(id) {
+  /**
+   * Return a cached target or start building one. Concurrent selections of the
+   * same id share one fetch and one PMREM build.
+   *
+   * @param {string} id Environment id.
+   * @returns {Promise<import('three').WebGLRenderTarget | null>} PMREM target.
+   */
+  function requestTarget(id) {
     const cached = targets.get(id);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) return Promise.resolve(cached);
 
-    let target = null;
-    try {
-      target = buildTarget(id);
-    } catch (error) {
+    const inflight = pending.get(id);
+    if (inflight !== undefined) return inflight;
+
+    const task = buildTarget(id).then((target) => {
+      pending.delete(id);
+      if (target === null) return null;
+      if (disposed) {
+        target.dispose();
+        return null;
+      }
+      targets.set(id, target);
+      return target;
+    }, (error) => {
+      pending.delete(id);
       console.warn(`[dsh-3d-viewer] Could not build the "${id}" environment.`, error);
-    }
+      return null;
+    });
 
-    if (target === null && id !== DEFAULT_ENVIRONMENT) {
-      target = getTarget(DEFAULT_ENVIRONMENT);
-    }
-    if (target !== null) targets.set(id, target);
-    return target;
+    pending.set(id, task);
+    return task;
+  }
+
+  /**
+   * Apply one finished target to the scene.
+   *
+   * @param {string} id Environment id.
+   * @param {import('three').WebGLRenderTarget} target PMREM target.
+   */
+  function applyTarget(id, target) {
+    scene.environment = target.texture;
+    scene.environmentIntensity = intensities[id] ?? intensities[DEFAULT_ENVIRONMENT] ?? 1.0;
+    activeId = id;
   }
 
   function set(id) {
     if (disposed) return false;
 
-    const next = normalizeEnvironmentId(id, dataUrls);
-    if (next === activeId) return false;
+    const next = normalizeEnvironmentId(id);
+    if (next === requestedId) return false;
+    requestedId = next;
 
-    const target = getTarget(next);
-    if (target === null) return false;
+    const cached = targets.get(next);
+    if (cached !== undefined) {
+      applyTarget(next, cached);
+      onReady?.();
+      return true;
+    }
 
-    scene.environment = target.texture;
-    scene.environmentIntensity = intensities[next] ?? intensities[DEFAULT_ENVIRONMENT] ?? 1.0;
-    activeId = next;
+    void requestTarget(next).then((target) => {
+      if (disposed) return;
+
+      if (target === null) {
+        // Allow a later retry instead of treating the failed id as current.
+        if (requestedId === next) requestedId = activeId;
+        return;
+      }
+      if (requestedId !== next) return;
+
+      applyTarget(next, target);
+      onReady?.();
+    });
     return true;
   }
 
@@ -169,10 +241,12 @@ export function createEnvironment({
     if (disposed) return;
     disposed = true;
     activeId = null;
+    requestedId = null;
     scene.environment = null;
 
     for (const target of new Set(targets.values())) target.dispose();
     targets.clear();
+    pending.clear();
     pmremGenerator?.dispose();
     pmremGenerator = null;
   }

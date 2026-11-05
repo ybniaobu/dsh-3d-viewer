@@ -43,7 +43,9 @@ THE SOFTWARE.
 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). CC0 requires no
 attribution; the source links and license note are kept in
 [assets/hdri/LICENSE.md](assets/hdri/LICENSE.md) for provenance.
-The HDRIs are embedded into `client.js` as base64 data URLs at build time.
+The HDRIs ship as files in the package and are served at runtime by the
+plugin's Host route (`/dsh-3d-viewer/hdri/`); they are not embedded in
+`client.js`.
 
 ## React
 

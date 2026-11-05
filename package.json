@@ -35,10 +35,7 @@
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "icon.svg",
-    "src",
-    "assets",
-    "scripts",
-    "build.mjs"
+    "assets/hdri"
   ],
   "dsh": {
     "bundle": {
@@ -55,7 +52,6 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "embed:hdri": "node scripts/embed-hdri.mjs --force",
     "test": "node tests/run.mjs"
   },
   "license": "MIT"

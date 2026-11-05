@@ -13,7 +13,7 @@ Preview FBX, OBJ, glTF, GLB, and STL models from the current session's workspace
 
 ## Installation and enabling
 
-Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` already bundles Three.js, the loaders, and four HDRIs; no Node.js or npm download is needed at runtime, and React comes from DSH.
+Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` bundles Three.js and the loaders; the four HDRI files ship in the package and are served by a small read-only host route on the local DSH server, so no network access is needed at runtime. React comes from DSH.
 
 ### Install from npm (recommended)
 
@@ -30,7 +30,7 @@ Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` already
 
 Use this for offline or intranet distribution.
 
-1. Unpack the plugin directory anywhere; it must contain `package.json`, `client.js`, `index.js`, and `cordis.patch.yml`.
+1. Unpack the plugin directory anywhere; it must contain `package.json`, `client.js`, `index.js`, `cordis.patch.yml`, and the `assets/hdri/` directory.
 2. Open DSH Desktop and choose **Plugins** in the sidebar.
 3. Click **Add plugin** → **Install a third-party plugin**.
 4. Enter the directory's absolute path (for example `F:\plugins\dsh-3d-viewer`) and click **Install**.
@@ -65,6 +65,8 @@ Use this for offline or intranet distribution.
 
 External resources (FBX/glTF textures, glTF `.bin`, OBJ MTL and textures) are read from the session workspace.
 
+The four environments are the exception: the HDRIs ship inside the plugin package, and the Host half serves them from the local DSH server on `/dsh-3d-viewer/hdri/`, so switching environments never touches the network.
+
 Notes:
 
 - **All formats**: lights, cameras, and audio embedded in the file are removed; the preview uses its own lighting and camera.
@@ -83,6 +85,7 @@ Notes:
 
 | Path | Responsibility |
 | --- | --- |
+| `index.js` | Host half: registers the read-only `/dsh-3d-viewer/hdri/` route that serves the packaged HDRIs |
 | `src/client.js` | Plugin entry; registers document previews and Sidebar slots per format |
 | `src/formats.js` | Format registry: ids, extensions, title/badge keys, and format normalization |
 | `src/bytes.js` | Shared byte, text, path, MIME, and base64 helpers plus the cancellation error |
@@ -92,7 +95,7 @@ Notes:
 | `src/ui/chrome.js`, `icons.js`, `primitives.js` | Toolbar, data-driven material/environment popovers, stats panel, icons, and formatting |
 | `src/ui/styles.js`, `dictionaries.js`, `options.js` | Styles, English/Chinese copy, and UI options |
 | `src/scene/createSceneView.js` | Scene orchestration: renderer, camera, controls, lifecycle |
-| `src/scene/environment.js` | HDRI decoding, PMREM construction, and environment map caching |
+| `src/scene/environment.js` | HDRI fetch from the host route, decode, PMREM construction, and per-id caching |
 | `src/scene/materials.js` | Phong/Lambert → PBR conversion, material presets, and wireframe material |
 | `src/scene/ground.js` | Infinite grid shader and shadow receiver; grid pixels are generated once per page |
 | `src/scene/animation.js` | AnimationMixer, clip timeline, and progress notifications |
@@ -102,10 +105,9 @@ Notes:
 | `src/loaders/gltf.js` | glTF/GLB external buffer/texture prefetch (deduplicated by resource), animation wiring, and cleanup |
 | `src/model.js` | Synchronous FBX / OBJ / STL parsing, stats, and resource disposal |
 | `src/vendor/FBXLoaderPbr.js` | Vendored Three.js FBXLoader with metalness/roughness custom-attribute support |
-| `src/generated/hdri-data.js` | Generated embedded HDRI data; do not edit by hand |
 | `tests/run.mjs` | Test entry; each `tests/*.mjs` runs in its own process |
 | `icon.svg` | Plugin icon; DSH metadata requires it at the package root |
-| `assets/hdri/` | HDRI source files |
+| `assets/hdri/` | Packaged HDRI files served by the host route (Poly Haven CC0) |
 
 ## License
 

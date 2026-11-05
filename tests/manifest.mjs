@@ -14,6 +14,11 @@ assert.equal(pkg.exports['./package.json'], './package.json');
 assert.ok(pkg.files.includes('icon.svg'), 'root icon.svg must be packaged');
 assert.ok(pkg.files.includes('LICENSE'), 'LICENSE must be packaged');
 assert.ok(pkg.files.includes('THIRD_PARTY_NOTICES.md'), 'third-party notices must be packaged');
+// The Host route reads the HDRIs from the installed package, so they must ship.
+assert.ok(pkg.files.includes('assets/hdri'), 'HDRI files must be packaged for the host route');
+// Source, build tooling, and generated data are build-time inputs only.
+assert.ok(!pkg.files.includes('src'), 'source is not needed at runtime');
+assert.ok(!pkg.files.includes('scripts'), 'build scripts are not needed at runtime');
 
 const license = await readFile(resolve(root, 'LICENSE'), 'utf8');
 assert.match(license, /^MIT License\r?\n/);
