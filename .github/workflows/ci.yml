@@ -22,9 +22,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
 
-      - name: Install test dependencies
-        run: npm install --no-save --no-package-lock three@0.187.0 react@18.3.1 react-dom@18.3.1
+      - name: Install dependencies
+        run: npm ci
 
       - name: Test
         run: npm test
+
+      - name: Check committed client.js matches source
+        run: |
+          npm run build
+          if ! git diff --exit-code -- client.js; then
+            echo "::error file=client.js::client.js is stale; run 'npm run build' and commit the result."
+            exit 1
+          fi
