@@ -1,10 +1,15 @@
-# 3D Viewer
+<div align="center">
+  <img src="https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/icon-180.png" alt="3D Viewer 图标" width="96" height="96">
+  <h1 align="center">3D Viewer</h1>
+</div>
 
-[English](README.md) | 中文
+[English](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.md) | 中文
+
+[![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
 在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型。无需上传或联网：打开模型即可旋转、缩放、切换材质与环境，并播放内置动画。
 
-![3D Viewer 预览](assets/preview.png)
+![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
 ## 安装与启用
 
@@ -104,4 +109,4 @@
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。第三方声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，包括 Three.js（MIT）与 Poly Haven HDRI（CC0，见 [assets/hdri/LICENSE.md](assets/hdri/LICENSE.md)）。React 由 DSH 提供，不随包分发。
+MIT，见 [LICENSE](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/LICENSE)。第三方声明见 [THIRD_PARTY_NOTICES.md](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/THIRD_PARTY_NOTICES.md)，包括 Three.js（MIT）与 Poly Haven HDRI（CC0，见 [assets/hdri/LICENSE.md](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/assets/hdri/LICENSE.md)）。React 由 DSH 提供，不随包分发。

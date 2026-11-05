@@ -1,10 +1,15 @@
-# 3D Viewer
+<div align="center">
+  <img src="https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/icon-180.png" alt="3D Viewer icon" width="96" height="96">
+  <h1 align="center">3D Viewer</h1>
+</div>
 
-English | [中文](README.zh.md)
+English | [中文](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.zh.md)
+
+[![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
 Preview FBX, OBJ, glTF, GLB, and STL models from the current session's workspace in DSH's right sidebar. No uploads or network: open a model, orbit, zoom, switch materials and environments, and play embedded animations.
 
-![3D Viewer preview](assets/preview.png)
+![3D Viewer preview](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
 ## Installation and enabling
 
@@ -104,4 +109,4 @@ Notes:
 
 ## License
 
-MIT; see [LICENSE](LICENSE). Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), including Three.js (MIT) and Poly Haven HDRIs (CC0; see [assets/hdri/LICENSE.md](assets/hdri/LICENSE.md)). React is provided by DSH and is not distributed with this package.
+MIT; see [LICENSE](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/LICENSE). Third-party notices are in [THIRD_PARTY_NOTICES.md](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/THIRD_PARTY_NOTICES.md), including Three.js (MIT) and Poly Haven HDRIs (CC0; see [assets/hdri/LICENSE.md](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/assets/hdri/LICENSE.md)). React is provided by DSH and is not distributed with this package.

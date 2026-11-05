@@ -2,6 +2,20 @@
   "name": "dsh-3d-viewer",
   "version": "0.1.0",
   "description": "Render FBX, OBJ, glTF, GLB, and STL models from the right Sidebar's workspace file tree in an orbitable 3D view.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "3d-viewer"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ybniaobu/dsh-3d-viewer.git"
+  },
+  "homepage": "https://github.com/ybniaobu/dsh-3d-viewer#readme",
+  "bugs": {
+    "url": "https://github.com/ybniaobu/dsh-3d-viewer/issues"
+  },
   "type": "module",
   "icon": "./icon.svg",
   "exports": {
