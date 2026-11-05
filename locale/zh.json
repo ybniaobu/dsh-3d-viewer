@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "3D 查看器",
+    "description": "从右侧边栏文件树打开并预览 3D 模型，支持 FBX、OBJ、glTF、GLB 或 STL 格式。"
+  }
+}

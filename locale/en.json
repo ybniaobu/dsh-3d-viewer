@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "3D Viewer",
+    "description": "Open and preview 3D models from the file tree in the right sidebar. Supports FBX, OBJ, glTF, GLB, or STL formats."
+  }
+}

@@ -1,0 +1,84 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm-cache/
+.pnp.*
+jspm_packages/
+
+# Build output and caches
+# NOTE: client.js is the shipped runtime artifact; do not ignore it.
+.build/
+dist/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.cache/
+
+# Generated data and temporary downloads
+# NOTE: src/generated/hdri-data.js is kept in the repository for offline
+# builds and tests. Add it here if it should be regenerated on build instead.
+.tmp-hdri/
+.tools/
+
+# Local sample models (not distributed; see samples/README.md)
+samples/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# npm pack output
+*.tgz
+*.tar.gz
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+*.local
+# May contain npm publish tokens; share configuration via .npmrc.example.
+.npmrc
+!.npmrc.example
+
+# Editors / IDEs
+.vscode/
+.idea/
+.fleet/
+.history/
+*.iml
+*.swp
+*.swo
+*~
+*.sublime-workspace
+*.sublime-project
+
+# Operating system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+*.lnk
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.tmp-*/
+*.tmp
+*.temp
+*.pid
+*.bak
+*.orig
