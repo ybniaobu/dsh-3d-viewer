@@ -13,13 +13,13 @@
 
 ## 安装与启用
 
-插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `client.js` 已打包 Three.js、各类 Loader 和四张 HDRI；运行时不需 Node.js 或 npm，React 由 DSH 提供。
+插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `client.js` 已打包 Three.js 与各类 Loader；四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
 
 ### 从 npm 安装（推荐）
 
 1. 打开 DSH Desktop，点击侧边栏的 **Plugins（插件）**。
 2. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
-3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.1.0`。
+3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.1.1`。
 4. **Registry** 选择 npm 官方源（国内也可用 npmmirror）。
 5. 点击 **Install**，在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
 6. 回到会话打开模型。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
@@ -30,7 +30,7 @@
 
 适合离线或内网分发。
 
-1. 把插件目录解压到任意位置，目录需包含 `package.json`、`client.js`、`index.js`、`cordis.patch.yml`。
+1. 把插件目录解压到任意位置，目录需包含 `package.json`、`client.js`、`index.js`、`cordis.patch.yml` 和 `assets/hdri/` 目录。
 2. 打开 DSH Desktop，点击侧边栏的 **Plugins（插件）**。
 3. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
 4. 填入插件目录的绝对路径（例如 `F:\plugins\dsh-3d-viewer`），点击 **Install**。
@@ -43,7 +43,7 @@
 
 ### 运行要求
 
-- DSH Desktop。
+- DSH Desktop 0.2.2-rc.1 或更高版本（在 0.2.2-rc.1 上构建和测试）。
 - 支持 WebGL 2，否则预览会报错。
 - 模型文件位于会话工作区内，可通过右侧边栏的 **Files** 打开。
 
@@ -65,6 +65,8 @@
 
 外部资源（FBX/glTF 贴图、glTF `.bin`、OBJ MTL 与贴图）均从会话工作区读取。
 
+四个环境是例外：HDRI 随插件包分发，由宿主端从本机 DSH 服务器的 `/dsh-3d-viewer/hdri/` 只读路由提供，切换环境不会联网。
+
 补充说明：
 
 - **所有格式**：文件自带的灯光、相机和音频节点会被移除，预览统一使用自己的灯光和相机。
@@ -83,6 +85,7 @@
 
 | 路径 | 职责 |
 | --- | --- |
+| `index.js` | 宿主端：注册只读的 `/dsh-3d-viewer/hdri/` 路由，提供包内 HDRI 文件 |
 | `src/client.js` | 插件入口；按格式注册 document preview 与 Sidebar slot |
 | `src/formats.js` | 格式注册表：id、扩展名、标题/徽标文案和格式归一化 |
 | `src/bytes.js` | 共用的字节、文本、路径、MIME、base64 辅助函数与取消错误 |
@@ -92,7 +95,7 @@
 | `src/ui/chrome.js`、`icons.js`、`primitives.js` | 工具条、数据驱动的材质/环境弹层、统计面板、图标与格式化 |
 | `src/ui/styles.js`、`dictionaries.js`、`options.js` | 样式、中英文案和 UI 选项 |
 | `src/scene/createSceneView.js` | 场景编排：renderer、camera、controls、生命周期 |
-| `src/scene/environment.js` | HDRI 解码、PMREM 构建、环境贴图缓存 |
+| `src/scene/environment.js` | 从宿主路由获取 HDRI、解码、构建 PMREM 并按 id 缓存 |
 | `src/scene/materials.js` | Phong/Lambert → PBR 转换、材质预设、线框材质 |
 | `src/scene/ground.js` | 无限网格 shader 与阴影接收面；网格像素图全页只生成一次 |
 | `src/scene/animation.js` | AnimationMixer、片段时间轴和进度通知 |
@@ -102,10 +105,9 @@
 | `src/loaders/gltf.js` | glTF/GLB 外部 buffer/贴图预取（按资源去重）、动画挂载和资源清理 |
 | `src/model.js` | FBX / OBJ / STL 同步解析、统计、资源释放 |
 | `src/vendor/FBXLoaderPbr.js` | vendored Three.js FBXLoader，额外读取金属度/粗糙度自定义属性 |
-| `src/generated/hdri-data.js` | 构建生成的内置 HDRI 数据，不要手改 |
 | `tests/run.mjs` | 测试入口：每个 `tests/*.mjs` 都在独立进程中运行 |
 | `icon.svg` | 插件图标；DSH 元信息要求它位于包根目录 |
-| `assets/hdri/` | HDRI 源文件 |
+| `assets/hdri/` | 由宿主路由提供的 HDRI 文件（Poly Haven CC0） |
 
 ## 许可证
 

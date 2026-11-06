@@ -91,11 +91,6 @@ export function createSceneView(host, object, stats, options = {}) {
   const camera = new PerspectiveCamera(38, initialWidth / initialHeight, 0.1, 1000);
   const maxDimension = stats.maxDimension > 0 ? stats.maxDimension : 1;
 
-  const environment = createEnvironment({ renderer, scene });
-  environment.set(options.environment ?? DEFAULT_ENVIRONMENT);
-  renderer.setRenderTarget(null);
-  renderer.setClearColor(0x000000, 0);
-
   const lighting = createLighting({ scene, center: stats.center, maxDimension });
   scene.add(object);
 
@@ -156,6 +151,19 @@ export function createSceneView(host, object, stats, options = {}) {
     if (autoRotate) controls.update();
     post.render(delta);
   });
+
+  // The environment is fetched from the Host route, so the first selection
+  // finishes after the model is already framed: PMREM leaves its own render
+  // target bound, and the view repaints once the target is applied.
+  const environment = createEnvironment({
+    renderer,
+    scene,
+    onReady: () => {
+      renderer.setRenderTarget(null);
+      loop.invalidate();
+    },
+  });
+  environment.set(options.environment ?? DEFAULT_ENVIRONMENT);
 
   function syncView() {
     const distance = Math.max(camera.position.distanceTo(controls.target), maxDimension * 0.05);

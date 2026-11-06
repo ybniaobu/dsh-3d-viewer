@@ -1,39 +1,37 @@
-import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { embedHdri } from './scripts/embed-hdri.mjs';
+import esbuild from 'esbuild';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
-const esbuildBin = resolve(root, 'node_modules/esbuild/bin/esbuild');
 const bundlePath = resolve(root, '.build/client.bundle.cjs');
 
-await embedHdri();
 await mkdir(dirname(bundlePath), { recursive: true });
 
-const result = spawnSync(process.execPath, [
-  esbuildBin,
-  resolve(root, 'src/client.js'),
-  '--bundle',
-  '--format=cjs',
-  '--platform=browser',
-  '--target=chrome120,edge120',
-  '--external:react',
-  '--minify',
-  '--legal-comments=none',
-  '--log-level=warning',
-  `--outfile=${bundlePath}`,
-], {
-  cwd: root,
-  stdio: 'inherit',
+// Use the JS API rather than node_modules/esbuild/bin/esbuild: that path is a
+// JS shim on Windows but the native binary on Linux, so spawning it with node
+// fails in CI. The API resolves the platform binary itself.
+await esbuild.build({
+  absWorkingDir: root,
+  entryPoints: [resolve(root, 'src/client.js')],
+  bundle: true,
+  format: 'cjs',
+  platform: 'browser',
+  target: ['chrome120', 'edge120'],
+  external: ['react'],
+  minify: true,
+  legalComments: 'none',
+  logLevel: 'warning',
+  define: {
+    // The HDRI route URL carries this, so an upgrade never reuses a cached file.
+    __DSH3D_VIEWER_VERSION__: JSON.stringify(pkg.version),
+  },
+  outfile: bundlePath,
 });
 
-if (result.error !== undefined) throw result.error;
-if (result.status !== 0) process.exit(result.status ?? 1);
-
 const code = (await readFile(bundlePath, 'utf8')).trimEnd();
-const wrapped = `/*! dsh-3d-viewer | bundles Three.js (MIT), FBXLoader, OBJLoader, MTLLoader, GLTFLoader, STLLoader, OrbitControls and HDRLoader (MIT), plus embedded Poly Haven CC0 HDRIs. See THIRD_PARTY_NOTICES.md for third-party licenses. */
+const wrapped = `/*! dsh-3d-viewer | bundles Three.js (MIT), FBXLoader, OBJLoader, MTLLoader, GLTFLoader, STLLoader, OrbitControls and HDRLoader (MIT). The four Poly Haven CC0 HDRIs ship as files and are served by the host route in index.js. See THIRD_PARTY_NOTICES.md for third-party licenses. */
 window.__ModuleLoader__.load({
   id: ${JSON.stringify(pkg.name)},
   factory(require) {

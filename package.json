@@ -1,6 +1,6 @@
 {
   "name": "dsh-3d-viewer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Render FBX, OBJ, glTF, GLB, and STL models from the right Sidebar's workspace file tree in an orbitable 3D view.",
   "keywords": [
     "dsh",
@@ -35,10 +35,7 @@
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "icon.svg",
-    "src",
-    "assets",
-    "scripts",
-    "build.mjs"
+    "assets/hdri"
   ],
   "dsh": {
     "bundle": {
@@ -55,8 +52,16 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "embed:hdri": "node scripts/embed-hdri.mjs --force",
     "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.187.0"
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.1"
   },
   "license": "MIT"
 }

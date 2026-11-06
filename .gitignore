@@ -16,9 +16,7 @@ coverage/
 .stylelintcache
 .cache/
 
-# Generated data and temporary downloads
-# NOTE: src/generated/hdri-data.js is kept in the repository for offline
-# builds and tests. Add it here if it should be regenerated on build instead.
+# Temporary downloads
 .tmp-hdri/
 .tools/
 
