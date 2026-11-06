@@ -51,6 +51,7 @@ function readPixelRatio() {
  *   reset: () => void,
  *   invalidate: () => void,
  *   paint: () => void,
+ *   environmentReady: Promise<void>,
  *   dispose: () => void,
  * }} View controls.
  */
@@ -156,12 +157,22 @@ export function createSceneView(host, object, stats, options = {}) {
   // The environment is fetched from the Host route, so the first selection
   // finishes after the model is already framed: PMREM leaves its own render
   // target bound, and the view repaints once the target is applied.
+  let resolveEnvironmentReady;
+  const environmentReady = new Promise((resolve) => {
+    resolveEnvironmentReady = resolve;
+  });
+
   const environment = createEnvironment({
     renderer,
     scene,
     onReady: () => {
+      resolveEnvironmentReady();
       renderer.setRenderTarget(null);
       loop.invalidate();
+    },
+    onError: () => {
+      // A failed HDRI must not keep the view on its loading overlay forever.
+      resolveEnvironmentReady();
     },
   });
   environment.set(options.environment ?? DEFAULT_ENVIRONMENT);
@@ -319,6 +330,7 @@ export function createSceneView(host, object, stats, options = {}) {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    resolveEnvironmentReady();
 
     loop.dispose();
     resizeObserver?.disconnect();
@@ -386,6 +398,7 @@ export function createSceneView(host, object, stats, options = {}) {
     reset,
     invalidate,
     paint,
+    environmentReady,
     dispose,
   };
 }

@@ -90,6 +90,36 @@ async function fetchHdriBytes(id) {
   return response.arrayBuffer();
 }
 
+/** One shared byte promise per environment, so a viewer can start early. */
+const bytePromises = new Map();
+
+/**
+ * Start fetching one HDRI before a renderer exists.
+ *
+ * The model read and parse run in parallel with this fetch; the eventual PMREM
+ * build then starts with bytes already in memory. A failed fetch is evicted so
+ * a later viewer can retry.
+ *
+ * @param {unknown} id Environment id.
+ * @returns {Promise<ArrayBuffer>} Raw `.hdr` bytes.
+ */
+export function prefetchEnvironment(id) {
+  const normalized = normalizeEnvironmentId(id);
+  const cached = bytePromises.get(normalized);
+  if (cached !== undefined) return cached;
+
+  const task = fetchHdriBytes(normalized).catch((error) => {
+    bytePromises.delete(normalized);
+    throw error;
+  });
+  // The viewer may not attach its own handler until after parsing; keep an
+  // early rejection from surfacing as an unhandled rejection.
+  task.catch(() => {});
+
+  bytePromises.set(normalized, task);
+  return task;
+}
+
 /**
  * Turn raw RGBE data into an equirectangular, non-mipmapped DataTexture.
  *
@@ -131,11 +161,12 @@ export function createEquirectangularTexture(buffer, loader = new HDRLoader()) {
  *   intensities?: Record<string, number>,
  *   rotations?: Record<string, number>,
  *   onReady?: () => void,
+ *   onError?: (error: unknown) => void,
  *   fetchBytes?: (id: string) => Promise<ArrayBuffer>,
  *   createTarget?: (id: string, buffer: ArrayBuffer) => import('three').WebGLRenderTarget | null | Promise<import('three').WebGLRenderTarget | null>,
  * }} options Renderer, target scene, per-environment IBL strengths and yaw,
- * a notification for when a requested environment is applied, and optional
- * byte/target providers used by the lifecycle tests.
+ * a notification for when a requested environment is applied or fails, and
+ * optional byte/target providers used by the lifecycle tests.
  * @returns {{
  *   set: (id: unknown) => boolean,
  *   dispose: () => void,
@@ -148,7 +179,8 @@ export function createEnvironment({
   intensities = ENVIRONMENT_INTENSITIES,
   rotations = ENVIRONMENT_ROTATIONS,
   onReady,
-  fetchBytes = fetchHdriBytes,
+  onError,
+  fetchBytes = prefetchEnvironment,
   createTarget,
 }) {
   const targets = new Map();
@@ -214,6 +246,13 @@ export function createEnvironment({
     }, (error) => {
       pending.delete(id);
       console.warn(`[dsh-3d-viewer] Could not build the "${id}" environment.`, error);
+      if (!disposed && requestedId === id) {
+        try {
+          onError?.(error);
+        } catch (callbackError) {
+          console.error('[dsh-3d-viewer] Environment error listener failed.', callbackError);
+        }
+      }
       return null;
     });
 

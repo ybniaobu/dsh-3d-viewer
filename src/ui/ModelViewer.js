@@ -3,12 +3,14 @@ import { isGlbAddress, normalizeFormat } from '../formats.js';
 import { loadModelBytes } from '../loaders/model-loader.js';
 import { collectModelStats, disposeObject } from '../model.js';
 import { createSceneView } from '../scene/createSceneView.js';
+import { prefetchEnvironment } from '../scene/environment.js';
 import { ViewerError } from '../scene/viewer-error.js';
 import { en } from './dictionaries.js';
 import { DEFAULT_SETTINGS } from './options.js';
 import { ViewerSurface } from './ViewerSurface.js';
 
 const h = React.createElement;
+const ENVIRONMENT_WAIT_MS = 3000;
 
 function fallbackTranslate(key, params) {
   const template = en[key] ?? key;
@@ -117,6 +119,10 @@ function ModelViewer(props) {
     let assets = null;
     const controller = new AbortController();
 
+    // Overlap the HDRI fetch with the model read and parse; the PMREM build
+    // then starts from bytes that are already in memory.
+    prefetchEnvironment(settingsRef.current.environment);
+
     // Release whatever the load produced, whichever stage it reached. A view
     // owns the model once it adopts the scene, so only one of them is disposed.
     const release = () => {
@@ -217,6 +223,29 @@ function ModelViewer(props) {
 
         // Paint once with the saved settings before the ready state removes the
         // loading overlay, so the canvas is never uncovered while still blank.
+        view.paint();
+
+        // Reveal the model and its IBL together. The first paint already
+        // compiled the shaders; waiting here only adds the HDRI bytes/PMREM.
+        let timer;
+        try {
+          await Promise.race([
+            view.environmentReady,
+            new Promise((resolve) => {
+              timer = setTimeout(resolve, ENVIRONMENT_WAIT_MS);
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+
+        if (disposed) {
+          release();
+          return;
+        }
+
+        // onReady applied the target asynchronously; repaint so the first
+        // revealed frame contains the environment rather than popping it in.
         view.paint();
 
         viewRef.current = view;
