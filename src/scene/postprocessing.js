@@ -63,7 +63,7 @@ void main() {
   float alpha = clamp(base.a, 0.0, 1.0);
   vec3 linear = base.rgb / max(alpha, 1e-4);
 
-  linear *= uExposure / 0.6;
+  linear *= uExposure;
   linear = acesFilmic(linear);
   vec3 color = sRGBTransferOETF(linear);
   vec3 finalColor = mix(vec3(1.0), color, alpha);

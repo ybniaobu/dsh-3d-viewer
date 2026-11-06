@@ -6,6 +6,7 @@ import { HDRI_ROUTE, apply, createHdriRoute } from '../index.js';
 import {
   ENVIRONMENT_IDS,
   ENVIRONMENT_INTENSITIES,
+  ENVIRONMENT_ROTATIONS,
   createEquirectangularTexture,
   normalizeEnvironmentId,
 } from '../src/scene/environment.js';
@@ -19,11 +20,14 @@ assert.deepEqual(
 );
 
 assert.deepEqual(ENVIRONMENT_INTENSITIES, {
-  nature: 1.0,
-  city: 1.0,
-  indoor: 0.8,
-  studio: 0.9,
+  nature: 1.2,
+  city: 1.25,
+  indoor: 0.95,
+  studio: 1.1,
 });
+
+assert.equal(ENVIRONMENT_ROTATIONS.indoor, Math.PI / 2, 'indoor HDRI should be yawed 90 degrees');
+assert.equal(ENVIRONMENT_ROTATIONS.nature, 0);
 
 assert.equal(normalizeEnvironmentId('city'), 'city');
 assert.equal(normalizeEnvironmentId('ocean'), 'nature');

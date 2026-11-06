@@ -6,6 +6,11 @@ import { StatRow, ToolButton, errorText, formatBytes, formatCount } from './prim
 
 const h = React.createElement;
 
+/** Layout effects are client-only; the server render falls back to a no-op. */
+const useIsomorphicLayoutEffect = typeof window === 'undefined'
+  ? React.useEffect
+  : React.useLayoutEffect;
+
 /** Swatch shape used by the material and environment rails. */
 const PICKER_SWATCH = Object.freeze({
   material: 'dsh3dv-ball',
@@ -81,6 +86,56 @@ function Picker({ kind, groupLabel, options, value, open, onOpenChange, onSelect
   React.useEffect(() => {
     if (!open) return;
     menuRef.current?.querySelector('[aria-checked="true"]')?.focus?.();
+  }, [open]);
+
+  // Render the menu in the browser's top layer (Popover API) so no ancestor
+  // stacking context or overflow can clip it, then pin it under the trigger.
+  useIsomorphicLayoutEffect(() => {
+    if (!open) return undefined;
+
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (trigger === null || menu === null) return undefined;
+
+    const place = () => {
+      const rect = trigger.getBoundingClientRect();
+      const width = menu.offsetWidth || 128;
+      const margin = 8;
+      const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+      // Nudge the rail 6px left of the trigger's left edge; clamping first keeps
+      // the nudge visible even when the trigger sits against the viewport edge.
+      const aligned = Math.min(Math.max(margin, rect.left), maxLeft);
+      const left = Math.max(margin, aligned - 6);
+      menu.style.top = `${Math.round(rect.bottom + 6)}px`;
+      menu.style.left = `${Math.round(left)}px`;
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+    };
+
+    menu.setAttribute('popover', 'manual');
+    if (typeof menu.showPopover === 'function') {
+      try {
+        menu.showPopover();
+      } catch {
+        // Fall back to normal rendering if the top layer refused the element.
+        menu.removeAttribute('popover');
+      }
+    }
+    place();
+
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      if (typeof menu.hidePopover === 'function' && menu.isConnected) {
+        try {
+          menu.hidePopover();
+        } catch {
+          // Already hidden or removed from the top layer.
+        }
+      }
+    };
   }, [open]);
 
   return h('div', { className: 'dsh3dv-picker' },

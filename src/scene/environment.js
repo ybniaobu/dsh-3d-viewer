@@ -14,10 +14,23 @@ export const ENVIRONMENT_IDS = Object.freeze(['nature', 'city', 'indoor', 'studi
 
 /** Per-environment IBL strength. */
 export const ENVIRONMENT_INTENSITIES = Object.freeze({
-  nature: 1.0,
-  city: 1.0,
-  indoor: 0.8,
-  studio: 0.9,
+  nature: 1.2,
+  city: 1.25,
+  indoor: 0.95,
+  studio: 1.1,
+});
+
+/**
+ * Per-environment yaw, in radians, applied to the environment map sampling.
+ *
+ * `Scene.environmentRotation` rotates only the IBL contribution; the model,
+ * grid, and key light keep their own orientation.
+ */
+export const ENVIRONMENT_ROTATIONS = Object.freeze({
+  nature: 0,
+  city: 0,
+  indoor: Math.PI / 2,
+  studio: 0,
 });
 
 /** Host route that serves the packaged `.hdr` files. Mirrors `index.js`. */
@@ -116,9 +129,10 @@ export function createEquirectangularTexture(buffer, loader = new HDRLoader()) {
  *   renderer: import('three').WebGLRenderer,
  *   scene: import('three').Scene,
  *   intensities?: Record<string, number>,
+ *   rotations?: Record<string, number>,
  *   onReady?: () => void,
- * }} options Renderer, target scene, per-environment IBL strengths, and a
- * notification for when a requested environment is applied.
+ * }} options Renderer, target scene, per-environment IBL strengths and yaw,
+ * and a notification for when a requested environment is applied.
  * @returns {{
  *   set: (id: unknown) => boolean,
  *   dispose: () => void,
@@ -129,6 +143,7 @@ export function createEnvironment({
   renderer,
   scene,
   intensities = ENVIRONMENT_INTENSITIES,
+  rotations = ENVIRONMENT_ROTATIONS,
   onReady,
 }) {
   const targets = new Map();
@@ -204,6 +219,7 @@ export function createEnvironment({
   function applyTarget(id, target) {
     scene.environment = target.texture;
     scene.environmentIntensity = intensities[id] ?? intensities[DEFAULT_ENVIRONMENT] ?? 1.0;
+    scene.environmentRotation?.set(0, rotations[id] ?? 0, 0);
     activeId = id;
   }
 
