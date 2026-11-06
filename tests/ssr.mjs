@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ViewerSurface } from '../src/ui/ViewerSurface.js';
+import { CSS } from '../src/ui/styles.js';
 
 // 1. Bundle integration: the plugin registers four bodies, and a newly opened
 //    document renders its loading state without touching WebGL.
@@ -54,6 +55,9 @@ assert.match(loadingHtml, /data-dsh3d-format="obj"/);
 assert.match(loadingHtml, /data-dsh3d-status="loading"/);
 assert.match(loadingHtml, /--dsw-alias-label-primary/);
 assert.match(loadingHtml, /background:#fff/);
+assert.match(loadingHtml, /dsh3dv-loading-in/);
+assert.match(CSS, /\.dsh3dv-overlay\[data-dsh3d-status="loading"\]\{animation:dsh3dv-loading-in \.16s ease \.12s both\}/);
+assert.match(CSS, /@keyframes dsh3dv-loading-in\{from\{opacity:0\}to\{opacity:1\}\}/);
 assert.match(loadingHtml, /class="dsh3dv-spinner"/);
 assert.doesNotMatch(loadingHtml, /WebGL|THREE/);
 

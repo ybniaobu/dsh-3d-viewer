@@ -50,6 +50,7 @@ function readPixelRatio() {
  *   setWireframe: (enabled: boolean) => boolean,
  *   reset: () => void,
  *   invalidate: () => void,
+ *   paint: () => void,
  *   dispose: () => void,
  * }} View controls.
  */
@@ -309,6 +310,12 @@ export function createSceneView(host, object, stats, options = {}) {
     loop.invalidate();
   }
 
+  function paint() {
+    if (disposed) return;
+    animation.update(0, performance.now());
+    post.render(0);
+  }
+
   function dispose() {
     if (disposed) return;
     disposed = true;
@@ -378,6 +385,7 @@ export function createSceneView(host, object, stats, options = {}) {
     setWireframe,
     reset,
     invalidate,
+    paint,
     dispose,
   };
 }

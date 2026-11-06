@@ -69,6 +69,8 @@ export const CSS = `
 .dsh3dv-progress::-moz-range-thumb{width:9px;height:9px;border:0;border-radius:50%;background:var(--dsw-alias-label-secondary)}
 .dsh3dv-anim-time{flex:none;color:var(--dsw-alias-label-secondary);font-size:10px;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;white-space:nowrap}
 .dsh3dv-overlay{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;box-sizing:border-box;pointer-events:none}
+.dsh3dv-overlay[data-dsh3d-status="loading"]{animation:dsh3dv-loading-in .16s ease .12s both}
+@keyframes dsh3dv-loading-in{from{opacity:0}to{opacity:1}}
 .dsh3dv-panel{box-sizing:border-box;width:min(320px,100%);padding:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);text-align:center;pointer-events:auto;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .dsh3dv-panel--loading{display:flex;align-items:center;gap:9px;width:auto;max-width:100%;padding:9px 12px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.3}
 .dsh3dv-panel-icon{width:34px;height:34px;margin:0 auto 10px;color:var(--dsw-alias-label-secondary);opacity:.7}
@@ -85,5 +87,5 @@ export const CSS = `
 .dsh3dv-root button,.dsh3dv-root select,.dsh3dv-root option,.dsh3dv-root input,.dsh3dv-root textarea,.dsh3dv-root summary,.dsh3dv-root pre,.dsh3dv-root code{font-family:inherit}
 .dsh3dv-spinner{flex:none;width:14px;height:14px;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-brand-primary);border-radius:50%;animation:dsh3dv-spin .8s linear infinite}
 @keyframes dsh3dv-spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.dsh3dv-spinner{animation-duration:2.4s}}
+@media (prefers-reduced-motion:reduce){.dsh3dv-spinner{animation-duration:2.4s}.dsh3dv-overlay[data-dsh3d-status="loading"]{animation-duration:.01s}}
 `;

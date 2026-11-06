@@ -184,6 +184,10 @@ function ModelViewer(props) {
           return;
         }
 
+        // Paint once with the saved settings before the ready state removes the
+        // loading overlay, so the canvas is never uncovered while still blank.
+        view.paint();
+
         viewRef.current = view;
         setRuntime({
           status: 'ready',
