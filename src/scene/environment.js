@@ -131,8 +131,11 @@ export function createEquirectangularTexture(buffer, loader = new HDRLoader()) {
  *   intensities?: Record<string, number>,
  *   rotations?: Record<string, number>,
  *   onReady?: () => void,
+ *   fetchBytes?: (id: string) => Promise<ArrayBuffer>,
+ *   createTarget?: (id: string, buffer: ArrayBuffer) => import('three').WebGLRenderTarget | null | Promise<import('three').WebGLRenderTarget | null>,
  * }} options Renderer, target scene, per-environment IBL strengths and yaw,
- * and a notification for when a requested environment is applied.
+ * a notification for when a requested environment is applied, and optional
+ * byte/target providers used by the lifecycle tests.
  * @returns {{
  *   set: (id: unknown) => boolean,
  *   dispose: () => void,
@@ -145,6 +148,8 @@ export function createEnvironment({
   intensities = ENVIRONMENT_INTENSITIES,
   rotations = ENVIRONMENT_ROTATIONS,
   onReady,
+  fetchBytes = fetchHdriBytes,
+  createTarget,
 }) {
   const targets = new Map();
   const pending = new Map();
@@ -159,6 +164,17 @@ export function createEnvironment({
     return pmremGenerator;
   }
 
+  function createPmremTarget(buffer) {
+    const texture = createEquirectangularTexture(buffer, loader);
+    try {
+      return getPmremGenerator().fromEquirectangular(texture);
+    } finally {
+      texture.dispose();
+    }
+  }
+
+  const buildFromBytes = createTarget ?? ((_id, buffer) => createPmremTarget(buffer));
+
   /**
    * Fetch and prefilter one environment. Resolves to null on disposal.
    *
@@ -166,15 +182,10 @@ export function createEnvironment({
    * @returns {Promise<import('three').WebGLRenderTarget | null>} PMREM target.
    */
   async function buildTarget(id) {
-    const buffer = await fetchHdriBytes(id);
+    const buffer = await fetchBytes(id);
     if (disposed) return null;
 
-    const texture = createEquirectangularTexture(buffer, loader);
-    try {
-      return getPmremGenerator().fromEquirectangular(texture);
-    } finally {
-      texture.dispose();
-    }
+    return buildFromBytes(id, buffer);
   }
 
   /**
