@@ -20,12 +20,18 @@ const bundle = await readFile(new URL('../client.js', import.meta.url), 'utf8');
 new Function('window', bundle)(window);
 
 const components = [];
+const definitions = [];
 const ctx = {
   locale: {
     bind: () => (key) => key,
     register: () => () => {},
   },
-  documentPreviews: { register: () => () => {} },
+  documentPreviews: {
+    register: (definition) => {
+      definitions.push(definition);
+      return () => {};
+    },
+  },
   slots: {
     inject: (_key, callback) => callback(),
     register: (options, body) => {
@@ -42,6 +48,8 @@ const moduleExports = entry.factory((name) => {
 });
 moduleExports.apply(ctx);
 assert.equal(components.length, 4);
+assert.equal(definitions.length, 4);
+assert.ok(definitions.every((definition) => definition.loading === 'renderer'));
 const component = components.find(({ key }) => key === 'dsh-3d-viewer/obj')?.body;
 assert.equal(typeof component, 'function');
 

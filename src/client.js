@@ -1,5 +1,5 @@
 import { FORMAT_ENTRIES } from './formats.js';
-import { readWorkspaceFile } from './loaders/workspace.js';
+import { parseFileAddress, readWorkspaceFile } from './loaders/workspace.js';
 import { VIEWER_COMPONENTS } from './ui/ModelViewer.js';
 import { en, zh } from './ui/dictionaries.js';
 
@@ -7,6 +7,28 @@ const NS = 'dsh3dViewer';
 const BODY_SLOT = 'sidebar.right.tab.document';
 
 export const inject = ['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles'];
+
+/**
+ * Read the root document bytes through the workspace Remote.
+ *
+ * Renderer-mode previews mount before the Host reads anything, so the body owns
+ * the initial read (and the loading state that goes with it).
+ *
+ * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
+ * @param {string} address Document resource address.
+ * @param {AbortSignal} signal Cancellation signal for the tab.
+ * @returns {Promise<object>} Workspace `readBytes` result.
+ */
+function readDocumentBytes(ctx, address, signal) {
+  const parsed = parseFileAddress(address);
+  if (parsed === undefined) {
+    return Promise.resolve({
+      ok: false,
+      error: { message: `Not a session file address: ${String(address)}` },
+    });
+  }
+  return readWorkspaceFile(ctx.remote, address, parsed.path, { signal });
+}
 
 /**
  * Register one document format and its right-Sidebar view body.
@@ -24,7 +46,7 @@ function registerPreview(ctx, t, entry) {
     binaryExtensions: [...entry.extensions],
     priority: 'extension',
     title: () => t(entry.titleKey),
-    loading: 'bytes-complete',
+    loading: 'renderer',
     wrap: false,
   }), `dsh-3d-viewer: ${entry.label} document preview`);
 
@@ -35,6 +57,7 @@ function registerPreview(ctx, t, entry) {
     inject: () => ({
       fallbackT: t,
       readWorkspaceFile: (address, path, options) => readWorkspaceFile(ctx.remote, address, path, options),
+      loadBytes: (address, signal) => readDocumentBytes(ctx, address, signal),
     }),
   }, component)), `dsh-3d-viewer: ${entry.label} viewer body`);
 }

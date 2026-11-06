@@ -69,6 +69,8 @@ function applyViewSettings(view, settings) {
  * @param {{
  *   format: 'fbx' | 'gltf' | 'obj' | 'stl',
  *   content?: { kind?: string, data?: Uint8Array | ArrayBuffer | string },
+ *   renderer?: { revision?: number, loaded?: (version?: unknown) => void, failed?: () => void },
+ *   loadBytes?: (address: string, signal: AbortSignal) => Promise<object>,
  *   resourceAddress?: string,
  *   readWorkspaceFile?: Function,
  *   t?: (key: string, params?: Record<string, unknown>) => string,
@@ -79,6 +81,9 @@ function ModelViewer(props) {
   const format = normalizeFormat(props.format);
   const glb = format === 'gltf' && isGlbAddress(props.resourceAddress);
   const content = props.content;
+  const renderer = content !== undefined && content !== null && content.kind === 'renderer'
+    ? content
+    : null;
   const t = props.t ?? props.fallbackT ?? fallbackTranslate;
   const data = content !== undefined && content !== null
     && (content.kind === 'bytes' || content.kind === 'text')
@@ -93,11 +98,13 @@ function ModelViewer(props) {
   const tRef = React.useRef(t);
   const settingsRef = React.useRef(settings);
   const readerRef = React.useRef(typeof props.readWorkspaceFile === 'function' ? props.readWorkspaceFile : null);
+  const loadBytesRef = React.useRef(typeof props.loadBytes === 'function' ? props.loadBytes : null);
   const addressRef = React.useRef(typeof props.resourceAddress === 'string' ? props.resourceAddress : null);
 
   tRef.current = t;
   settingsRef.current = settings;
   readerRef.current = typeof props.readWorkspaceFile === 'function' ? props.readWorkspaceFile : null;
+  loadBytesRef.current = typeof props.loadBytes === 'function' ? props.loadBytes : null;
   addressRef.current = typeof props.resourceAddress === 'string' ? props.resourceAddress : null;
 
   React.useEffect(() => {
@@ -131,13 +138,37 @@ function ModelViewer(props) {
       if (disposed) return;
 
       try {
-        if (data === null) {
-          throw new ViewerError('parse', 'The preview supplied no binary model content.');
-        }
+        let bytes = data;
+        let version;
 
         let loaded;
         try {
-          loaded = await loadModelBytes(data, format, {
+          if (bytes === null) {
+            const loadBytes = loadBytesRef.current;
+            const address = addressRef.current;
+            if (typeof loadBytes !== 'function' || address === null) {
+              throw new ViewerError('parse', 'The preview supplied no binary model content.');
+            }
+
+            const result = await loadBytes(address, controller.signal);
+            if (disposed || controller.signal.aborted) return;
+            if (result?.ok !== true) {
+              throw new ViewerError('parse', result?.error?.message ?? 'The model file could not be read.');
+            }
+
+            bytes = result.value?.data ?? null;
+            version = result.value?.version;
+            if (bytes === null || bytes === undefined) {
+              throw new ViewerError('parse', 'The workspace returned no model bytes.');
+            }
+
+            // Renderer-mode bodies own the read. End the Host's loading state
+            // as soon as the bytes are here; the viewer's own overlay covers
+            // parsing and building.
+            renderer?.loaded?.(version);
+          }
+
+          loaded = await loadModelBytes(bytes, format, {
             resourceAddress: addressRef.current ?? undefined,
             readWorkspaceFile: readerRef.current ?? undefined,
             signal: controller.signal,
@@ -194,7 +225,7 @@ function ModelViewer(props) {
           failure: null,
           stats: nextStats,
           clips: view.animations,
-          fileSize: byteLengthOf(data),
+          fileSize: byteLengthOf(bytes),
         });
       } catch (error) {
         if (disposed || controller.signal.aborted) return;
@@ -219,7 +250,7 @@ function ModelViewer(props) {
       clearTimeout(timer);
       release();
     };
-  }, [data, attempt, format]);
+  }, [data, attempt, format, renderer?.revision]);
 
   React.useEffect(() => {
     const view = viewRef.current;

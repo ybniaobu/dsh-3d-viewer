@@ -88,7 +88,7 @@ assert.ok(stl, 'STL preview should be registered');
 
 for (const definition of [fbx, obj, gltf, stl]) {
   assert.equal(definition.priority, 'extension');
-  assert.equal(definition.loading, 'bytes-complete');
+  assert.equal(definition.loading, 'renderer');
   assert.equal(definition.wrap, false);
 }
 
@@ -114,6 +114,7 @@ for (const definition of [fbx, obj, gltf, stl]) {
   const injected = slot.options.inject();
   assert.equal(typeof injected.fallbackT, 'function');
   assert.equal(typeof injected.readWorkspaceFile, 'function');
+  assert.equal(typeof injected.loadBytes, 'function');
 }
 
 console.log('Registration verified:', {
