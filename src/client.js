@@ -5,8 +5,80 @@ import { en, zh } from './ui/dictionaries.js';
 
 const NS = 'dsh3dViewer';
 const BODY_SLOT = 'sidebar.right.tab.document';
+// workspace-files caps a single byte window at 2 MiB; files above the 32 MiB
+// full-file cap are assembled from these windows.
+const READ_CHUNK_BYTES = 2 * 1024 * 1024;
 
 export const inject = ['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles'];
+
+/**
+ * @param {unknown} error Remote failure.
+ * @returns {{ ok: false, error: { code?: string, message: string } }} Normalized failure.
+ */
+function failure(error) {
+  return {
+    ok: false,
+    error: {
+      code: error !== null && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      message: error instanceof Error ? error.message : String(error),
+    },
+  };
+}
+
+/**
+ * Assemble a file larger than the Remote's 32 MiB full-file cap from 2 MiB
+ * byte windows.
+ *
+ * @param {{ readBytes: Function }} workspaceFiles Workspace Remote face.
+ * @param {string} sessionId Session identity.
+ * @param {string} path Workspace-relative path.
+ * @param {AbortSignal} signal Cancellation signal.
+ * @returns {Promise<object>} A complete-byte result shaped like `readBytes`.
+ */
+async function readChunked(workspaceFiles, sessionId, path, signal) {
+  const chunks = [];
+  let offset = 0;
+  let version;
+
+  for (;;) {
+    const result = await workspaceFiles.readBytes(
+      sessionId,
+      path,
+      { range: { offset, length: READ_CHUNK_BYTES } },
+      signal,
+    );
+    if (result?.ok !== true) return result;
+
+    const value = result.value;
+    const chunk = value?.data;
+    if (!(chunk instanceof Uint8Array)) {
+      return { ok: false, error: { message: 'The workspace returned no byte window.' } };
+    }
+    if (version === undefined) version = value.version;
+    else if (value.version !== undefined && value.version !== version) {
+      return {
+        ok: false,
+        error: { code: 'workspace-file/changed', message: 'The file changed while it was being read.' },
+      };
+    }
+
+    chunks.push(chunk);
+    if (value.eof) break;
+    if (chunk.byteLength === 0) {
+      return { ok: false, error: { message: 'The workspace returned an empty byte window.' } };
+    }
+    offset += chunk.byteLength;
+  }
+
+  const length = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const data = new Uint8Array(length);
+  let position = 0;
+  for (const chunk of chunks) {
+    data.set(chunk, position);
+    position += chunk.byteLength;
+  }
+  return { ok: true, value: { data, version, bytes: length } };
+}
 
 /**
  * Read the root document bytes through the workspace Remote.
@@ -19,13 +91,10 @@ export const inject = ['documentPreviews', 'slots', 'locale', 'remote', 'remote.
  * @param {AbortSignal} signal Cancellation signal for the tab.
  * @returns {Promise<object>} Workspace `readBytes` result.
  */
-function readDocumentBytes(ctx, address, signal) {
+async function readDocumentBytes(ctx, address, signal) {
   const parsed = parseFileAddress(address);
   if (parsed === undefined) {
-    return Promise.resolve({
-      ok: false,
-      error: { message: `Not a session file address: ${String(address)}` },
-    });
+    return failure(new Error(`Not a session file address: ${String(address)}`));
   }
 
   // Unlike a sibling texture, the root document is already workspace-relative:
@@ -33,16 +102,30 @@ function readDocumentBytes(ctx, address, signal) {
   // `samples/samples/model.obj`. Read it without a base.
   const workspaceFiles = ctx.remote?.workspaceFiles;
   if (workspaceFiles === undefined || typeof workspaceFiles.readBytes !== 'function') {
-    return Promise.resolve({
-      ok: false,
-      error: { message: 'The workspaceFiles Remote is unavailable.' },
-    });
+    return failure(new Error('The workspaceFiles Remote is unavailable.'));
   }
 
-  return workspaceFiles.readBytes(parsed.sessionId, parsed.path, {}, signal).catch((error) => ({
-    ok: false,
-    error: { message: error instanceof Error ? error.message : String(error) },
-  }));
+  const readLarge = async () => {
+    try {
+      return await readChunked(workspaceFiles, parsed.sessionId, parsed.path, signal);
+    } catch (error) {
+      return failure(error);
+    }
+  };
+
+  try {
+    const result = await workspaceFiles.readBytes(parsed.sessionId, parsed.path, {}, signal);
+    if (result?.ok === false && result.error?.code === 'workspace-file/too-large') {
+      return readLarge();
+    }
+    return result;
+  } catch (error) {
+    if (error !== null && typeof error === 'object' && 'code' in error
+      && error.code === 'workspace-file/too-large') {
+      return readLarge();
+    }
+    return failure(error);
+  }
 }
 
 /**

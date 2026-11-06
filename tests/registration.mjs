@@ -28,7 +28,36 @@ const registration = {
   injectKeys: [],
   effects: [],
 };
+
+// Exercise the >32 MiB fallback end to end: the full read rejects, and the
+// body assembles the same bytes from 2 MiB windows.
+const largeFile = new Uint8Array(5 * 1024 * 1024);
+for (let index = 0; index < largeFile.length; index += 1) largeFile[index] = index % 251;
+
+const remote = {
+  workspaceFiles: {
+    async readBytes(_sessionId, _path, request) {
+      if (request.range === undefined) {
+        return { ok: false, error: { code: 'workspace-file/too-large', message: 'too large' } };
+      }
+      const { offset, length } = request.range;
+      const end = Math.min(offset + length, largeFile.length);
+      return {
+        ok: true,
+        value: {
+          data: largeFile.subarray(offset, end),
+          offset,
+          eof: end >= largeFile.length,
+          version: 'v1',
+          bytes: largeFile.length,
+        },
+      };
+    },
+  },
+};
+
 const ctx = {
+  remote,
   locale: {
     bind(namespace) {
       registration.namespace = namespace;
@@ -116,6 +145,17 @@ for (const definition of [fbx, obj, gltf, stl]) {
   assert.equal(typeof injected.readWorkspaceFile, 'function');
   assert.equal(typeof injected.loadBytes, 'function');
 }
+
+const fbxSlot = registration.slots.find((slot) => slot.options.key === 'dsh-3d-viewer/fbx');
+const large = await fbxSlot.options.inject().loadBytes(
+  'dsh-resource://file/session/s1/samples/source/datsun240k.fbx',
+  new AbortController().signal,
+);
+assert.equal(large.ok, true);
+assert.equal(large.value.data.length, largeFile.length);
+assert.equal(large.value.version, 'v1');
+assert.equal(large.value.data[0], largeFile[0]);
+assert.equal(large.value.data[largeFile.length - 1], largeFile[largeFile.length - 1]);
 
 console.log('Registration verified:', {
   implementations: registration.definitions.map((definition) => ({
