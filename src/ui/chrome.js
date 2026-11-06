@@ -89,7 +89,8 @@ function Picker({ kind, groupLabel, options, value, open, onOpenChange, onSelect
   }, [open]);
 
   // Render the menu in the browser's top layer (Popover API) so no ancestor
-  // stacking context or overflow can clip it, then pin it under the trigger.
+  // stacking context or overflow can clip it, then pin it beside the trigger,
+  // flipping above it when the viewport bottom would cut the rail off.
   useIsomorphicLayoutEffect(() => {
     if (!open) return undefined;
 
@@ -101,12 +102,26 @@ function Picker({ kind, groupLabel, options, value, open, onOpenChange, onSelect
       const rect = trigger.getBoundingClientRect();
       const width = menu.offsetWidth || 128;
       const margin = 8;
+      const gap = 6;
+      const viewportHeight = window.innerHeight;
+
       const maxLeft = Math.max(margin, window.innerWidth - width - margin);
       // Nudge the rail 6px left of the trigger's left edge; clamping first keeps
       // the nudge visible even when the trigger sits against the viewport edge.
       const aligned = Math.min(Math.max(margin, rect.left), maxLeft);
       const left = Math.max(margin, aligned - 6);
-      menu.style.top = `${Math.round(rect.bottom + 6)}px`;
+
+      // Constrain first, then measure: a short rail has no internal scrollbar, so
+      // it must flip above the trigger instead of leaving options off-screen.
+      menu.style.maxHeight = `${Math.min(260, Math.max(0, viewportHeight - 2 * margin))}px`;
+      const height = menu.offsetHeight;
+      const below = rect.bottom + gap;
+      const above = rect.top - height - gap;
+      const preferredTop = below + height + margin <= viewportHeight ? below : above;
+      const maxTop = Math.max(margin, viewportHeight - height - margin);
+      const top = Math.min(Math.max(margin, preferredTop), maxTop);
+
+      menu.style.top = `${Math.round(top)}px`;
       menu.style.left = `${Math.round(left)}px`;
       menu.style.right = 'auto';
       menu.style.bottom = 'auto';
