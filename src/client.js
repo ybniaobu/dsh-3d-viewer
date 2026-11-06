@@ -27,7 +27,22 @@ function readDocumentBytes(ctx, address, signal) {
       error: { message: `Not a session file address: ${String(address)}` },
     });
   }
-  return readWorkspaceFile(ctx.remote, address, parsed.path, { signal });
+
+  // Unlike a sibling texture, the root document is already workspace-relative:
+  // passing it as `baseFile` would resolve it a second time and look for
+  // `samples/samples/model.obj`. Read it without a base.
+  const workspaceFiles = ctx.remote?.workspaceFiles;
+  if (workspaceFiles === undefined || typeof workspaceFiles.readBytes !== 'function') {
+    return Promise.resolve({
+      ok: false,
+      error: { message: 'The workspaceFiles Remote is unavailable.' },
+    });
+  }
+
+  return workspaceFiles.readBytes(parsed.sessionId, parsed.path, {}, signal).catch((error) => ({
+    ok: false,
+    error: { message: error instanceof Error ? error.message : String(error) },
+  }));
 }
 
 /**
