@@ -64,9 +64,12 @@ assert.match(loadingHtml, /data-dsh3d-status="loading"/);
 assert.match(loadingHtml, /--dsw-alias-label-primary/);
 assert.match(loadingHtml, /background:#fff/);
 assert.match(loadingHtml, /dsh3dv-loading-in/);
-assert.match(CSS, /\.dsh3dv-overlay\[data-dsh3d-status="loading"\]\{animation:dsh3dv-loading-in \.16s ease \.12s both\}/);
+assert.match(CSS, /\.dsh3dv-overlay\[data-dsh3d-status="loading"\]\{animation:dsh3dv-loading-in \.16s ease \.36s both\}/);
 assert.match(CSS, /@keyframes dsh3dv-loading-in\{from\{opacity:0\}to\{opacity:1\}\}/);
 assert.match(loadingHtml, /class="dsh3dv-spinner"/);
+assert.match(loadingHtml, /<circle/);
+assert.match(CSS, /\.dsh3dv-spinner\{[^}]*animation:dsh3dv-spin/);
+assert.match(CSS, /\.dsh3dv-spinner\{[^}]*will-change:transform/);
 assert.doesNotMatch(loadingHtml, /WebGL|THREE/);
 
 // 2. Ready surface: the pure presentation component takes the state the

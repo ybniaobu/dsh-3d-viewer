@@ -257,7 +257,18 @@ export function StatusOverlay({ status, failure, onRetry, t }) {
         role: 'status',
         'aria-live': 'polite',
       },
-      h('span', { className: 'dsh3dv-spinner', 'aria-hidden': true }),
+      h('span', { className: 'dsh3dv-spinner', 'aria-hidden': true },
+        h('svg', { className: 'dsh3dv-spinner-ring', viewBox: '0 0 16 16' },
+          h('circle', {
+            cx: 8,
+            cy: 8,
+            r: 6,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: 2,
+            strokeLinecap: 'round',
+            strokeDasharray: '28 10',
+          }))),
       h('span', null, t('loading'))));
   }
 
