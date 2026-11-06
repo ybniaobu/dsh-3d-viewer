@@ -46,7 +46,7 @@ npm publish
 ## 4. Verify
 
 - CI is green, including the `client.js` drift check.
-- The supported client is DSH Desktop 0.2.1-rc.5 or newer; verify the install
+- The supported client is DSH Desktop 0.2.2-rc.1 or newer; verify the install
   there.
 - `npm pack --dry-run --json` lists 16 files: `client.js`, `index.js`,
   `cordis.patch.yml`, `locale/*.json`, the docs, `icon.svg`, and
