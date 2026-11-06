@@ -8,8 +8,8 @@ import {
 
 /** Fallback materials offered by the material rail. */
 export const MATERIAL_PRESETS = Object.freeze({
-  diffuse: Object.freeze({ color: 0xd9d9d6, metalness: 0, roughness: 1 }),
-  plastic: Object.freeze({ color: 0xe8eef5, metalness: 0, roughness: 0.1 }),
+  diffuse: Object.freeze({ color: 0xdcdcdc, metalness: 0, roughness: 1 }),
+  plastic: Object.freeze({ color: 0xdcdddf, metalness: 0, roughness: 0.1 }),
   metal: Object.freeze({ color: 0xc5cbd3, metalness: 1, roughness: 0 }),
   'metal-polished': Object.freeze({ color: 0xd9dde4, metalness: 1, roughness: 0.3 }),
   clay: Object.freeze({ color: 0xb46f52, metalness: 0, roughness: 0.84 }),
