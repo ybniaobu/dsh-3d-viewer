@@ -114,7 +114,7 @@ export function createSceneView(host, object, stats, options = {}) {
   controls.rotateSpeed = 0.9;
   controls.zoomSpeed = 0.9;
   controls.panSpeed = 0.8;
-  controls.autoRotateSpeed = 2.4;
+  controls.autoRotateSpeed = 6;
   controls.minPolarAngle = 0.02;
   controls.maxPolarAngle = Math.PI * 0.98;
 
