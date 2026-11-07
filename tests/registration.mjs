@@ -34,24 +34,41 @@ const registration = {
 const largeFile = new Uint8Array(5 * 1024 * 1024);
 for (let index = 0; index < largeFile.length; index += 1) largeFile[index] = index % 251;
 
+let statCalls = 0;
+let rangeCalls = 0;
+let inFlight = 0;
+let maxInFlight = 0;
+
 const remote = {
   workspaceFiles: {
+    async stat() {
+      statCalls += 1;
+      return { ok: true, value: { version: 'v1', bytes: largeFile.length } };
+    },
     async readBytes(_sessionId, _path, request) {
       if (request.range === undefined) {
         return { ok: false, error: { code: 'workspace-file/too-large', message: 'too large' } };
       }
-      const { offset, length } = request.range;
-      const end = Math.min(offset + length, largeFile.length);
-      return {
-        ok: true,
-        value: {
-          data: largeFile.subarray(offset, end),
-          offset,
-          eof: end >= largeFile.length,
-          version: 'v1',
-          bytes: largeFile.length,
-        },
-      };
+      rangeCalls += 1;
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const { offset, length } = request.range;
+        const end = Math.min(offset + length, largeFile.length);
+        return {
+          ok: true,
+          value: {
+            data: largeFile.subarray(offset, end),
+            offset,
+            eof: end >= largeFile.length,
+            version: 'v1',
+            bytes: largeFile.length,
+          },
+        };
+      } finally {
+        inFlight -= 1;
+      }
     },
   },
 };
@@ -156,6 +173,17 @@ assert.equal(large.value.data.length, largeFile.length);
 assert.equal(large.value.version, 'v1');
 assert.equal(large.value.data[0], largeFile[0]);
 assert.equal(large.value.data[largeFile.length - 1], largeFile[largeFile.length - 1]);
+assert.ok(maxInFlight > 1, 'large windows should be read concurrently');
+
+const firstRangeCalls = rangeCalls;
+const cached = await fbxSlot.options.inject().loadBytes(
+  'dsh-resource://file/session/s1/samples/source/datsun240k.fbx',
+  new AbortController().signal,
+);
+assert.equal(cached.ok, true);
+assert.equal(cached.value.data.length, largeFile.length);
+assert.equal(statCalls, 2, 'the cached read still checks the file version');
+assert.equal(rangeCalls, firstRangeCalls, 'a version hit must not read the file again');
 
 console.log('Registration verified:', {
   implementations: registration.definitions.map((definition) => ({

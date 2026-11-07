@@ -10,9 +10,60 @@ const BODY_SLOT = 'sidebar.right.tab.document';
 // Format chunks are self-contained CJS scripts; they receive the chunk-sized
 // Three bridge through the wrapper installed by build.mjs.
 globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
-// workspace-files caps a single byte window at 2 MiB; files above the 32 MiB
-// full-file cap are assembled from these windows.
+// workspace-files caps a single byte window at 2 MiB. Root files are read in
+// parallel windows so a large model is not serialized into one long request.
 const READ_CHUNK_BYTES = 2 * 1024 * 1024;
+const READ_CONCURRENCY = 4;
+const READ_CACHE_BYTES = 64 * 1024 * 1024;
+const readCache = new Map();
+let readCacheBytes = 0;
+
+/**
+ * @param {string} key Cache key.
+ * @returns {void}
+ */
+function cacheDelete(key) {
+  const entry = readCache.get(key);
+  if (entry === undefined) return;
+  readCache.delete(key);
+  readCacheBytes -= entry.data.byteLength;
+}
+
+/**
+ * @param {string} key Cache key.
+ * @param {string} version File version.
+ * @returns {Uint8Array | null} Cached bytes for this exact version.
+ */
+function cacheGet(key, version) {
+  const entry = readCache.get(key);
+  if (entry === undefined) return null;
+  if (entry.version !== version) {
+    cacheDelete(key);
+    return null;
+  }
+  // Refresh the LRU order.
+  readCache.delete(key);
+  readCache.set(key, entry);
+  return entry.data;
+}
+
+/**
+ * @param {string} key Cache key.
+ * @param {string} version File version.
+ * @param {Uint8Array} data Complete bytes.
+ * @returns {void}
+ */
+function cacheSet(key, version, data) {
+  if (version === undefined || data.byteLength > READ_CACHE_BYTES) return;
+  cacheDelete(key);
+  while (readCacheBytes + data.byteLength > READ_CACHE_BYTES) {
+    const oldest = readCache.keys().next().value;
+    if (oldest === undefined) break;
+    cacheDelete(oldest);
+  }
+  readCache.set(key, { version, data });
+  readCacheBytes += data.byteLength;
+}
 
 export const inject = ['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles'];
 
@@ -31,51 +82,33 @@ function failure(error) {
 }
 
 /**
- * Assemble a file larger than the Remote's 32 MiB full-file cap from 2 MiB
- * byte windows.
+ * Read one explicit byte window.
  *
  * @param {{ readBytes: Function }} workspaceFiles Workspace Remote face.
  * @param {string} sessionId Session identity.
  * @param {string} path Workspace-relative path.
+ * @param {number} offset First byte.
+ * @param {number} length Window size.
  * @param {AbortSignal} signal Cancellation signal.
- * @returns {Promise<object>} A complete-byte result shaped like `readBytes`.
+ * @returns {Promise<object>} Remote result.
  */
-async function readChunked(workspaceFiles, sessionId, path, signal) {
-  const chunks = [];
-  let offset = 0;
-  let version;
+function readWindow(workspaceFiles, sessionId, path, offset, length, signal) {
+  return workspaceFiles.readBytes(
+    sessionId,
+    path,
+    { range: { offset, length } },
+    signal,
+  );
+}
 
-  for (;;) {
-    const result = await workspaceFiles.readBytes(
-      sessionId,
-      path,
-      { range: { offset, length: READ_CHUNK_BYTES } },
-      signal,
-    );
-    if (result?.ok !== true) return result;
-
-    const value = result.value;
-    const chunk = value?.data;
-    if (!(chunk instanceof Uint8Array)) {
-      return { ok: false, error: { message: 'The workspace returned no byte window.' } };
-    }
-    if (version === undefined) version = value.version;
-    else if (value.version !== undefined && value.version !== version) {
-      return {
-        ok: false,
-        error: { code: 'workspace-file/changed', message: 'The file changed while it was being read.' },
-      };
-    }
-
-    chunks.push(chunk);
-    if (value.eof) break;
-    if (chunk.byteLength === 0) {
-      return { ok: false, error: { message: 'The workspace returned an empty byte window.' } };
-    }
-    offset += chunk.byteLength;
-  }
-
-  const length = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+/**
+ * @param {Uint8Array[]} chunks Ordered chunks.
+ * @param {string | undefined} version File version.
+ * @returns {{ ok: true, value: { data: Uint8Array, version: string | undefined, bytes: number } }} Complete result.
+ */
+function mergeWindows(chunks, version) {
+  let length = 0;
+  for (const chunk of chunks) length += chunk.byteLength;
   const data = new Uint8Array(length);
   let position = 0;
   for (const chunk of chunks) {
@@ -86,10 +119,171 @@ async function readChunked(workspaceFiles, sessionId, path, signal) {
 }
 
 /**
+ * @returns {{ ok: false, error: { code: string, message: string } }} Change failure.
+ */
+function changedFailure() {
+  return {
+    ok: false,
+    error: { code: 'workspace-file/changed', message: 'The file changed while it was being read.' },
+  };
+}
+
+/**
+ * Read a list of windows with bounded concurrency, preserving document order.
+ *
+ * @param {{ readBytes: Function }} workspaceFiles Workspace Remote face.
+ * @param {string} sessionId Session identity.
+ * @param {string} path Workspace-relative path.
+ * @param {Array<{ offset: number, length: number }>} ranges Windows to read.
+ * @param {AbortSignal} signal Cancellation signal.
+ * @param {{ data: Uint8Array, version: string | undefined }} [initial] Already-read first window.
+ * @returns {Promise<object>} A complete-byte result shaped like `readBytes`.
+ */
+async function readRanges(workspaceFiles, sessionId, path, ranges, signal, initial) {
+  const results = new Array(ranges.length);
+  let cursor = 0;
+
+  const worker = async () => {
+    for (;;) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= ranges.length) return;
+      const range = ranges[index];
+      try {
+        results[index] = await readWindow(
+          workspaceFiles,
+          sessionId,
+          path,
+          range.offset,
+          range.length,
+          signal,
+        );
+      } catch (error) {
+        results[index] = failure(error);
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(READ_CONCURRENCY, ranges.length) }, worker),
+  );
+
+  const chunks = initial === undefined ? [] : [initial.data];
+  let version = initial?.version;
+
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
+    if (result?.ok !== true) {
+      return result ?? failure(new Error('The workspace returned no byte window.'));
+    }
+    const value = result.value;
+    const chunk = value?.data;
+    if (!(chunk instanceof Uint8Array)) {
+      return failure(new Error('The workspace returned no byte window.'));
+    }
+    if (version === undefined) version = value.version;
+    else if (value.version !== undefined && value.version !== version) return changedFailure();
+
+    if (chunk.byteLength !== ranges[index].length) {
+      return failure(new Error('The workspace returned a short byte window.'));
+    }
+    chunks.push(chunk);
+  }
+
+  return mergeWindows(chunks, version);
+}
+
+/**
+ * Read a known-size file in windows.
+ *
+ * @param {{ readBytes: Function }} workspaceFiles Workspace Remote face.
+ * @param {string} sessionId Session identity.
+ * @param {string} path Workspace-relative path.
+ * @param {number} size Complete file size.
+ * @param {AbortSignal} signal Cancellation signal.
+ * @returns {Promise<object>} Complete-byte result.
+ */
+function readBySize(workspaceFiles, sessionId, path, size, signal) {
+  if (!Number.isFinite(size) || size < 0) {
+    return Promise.resolve(failure(new Error('The workspace reported an invalid file size.')));
+  }
+  const ranges = [];
+  for (let offset = 0; offset < size; offset += READ_CHUNK_BYTES) {
+    ranges.push({
+      offset,
+      length: Math.min(READ_CHUNK_BYTES, size - offset),
+    });
+  }
+  return readRanges(workspaceFiles, sessionId, path, ranges, signal);
+}
+
+/**
+ * Fallback for a backend without `stat`: discover the size from the first
+ * window, then read the rest in parallel when the size is reported.
+ *
+ * @param {{ readBytes: Function }} workspaceFiles Workspace Remote face.
+ * @param {string} sessionId Session identity.
+ * @param {string} path Workspace-relative path.
+ * @param {AbortSignal} signal Cancellation signal.
+ * @returns {Promise<object>} Complete-byte result.
+ */
+async function readWithoutStat(workspaceFiles, sessionId, path, signal) {
+  const first = await readWindow(workspaceFiles, sessionId, path, 0, READ_CHUNK_BYTES, signal);
+  if (first?.ok !== true) return first;
+
+  const value = first.value;
+  const data = value?.data;
+  if (!(data instanceof Uint8Array)) {
+    return failure(new Error('The workspace returned no byte window.'));
+  }
+  if (value.eof) {
+    return { ok: true, value: { data, version: value.version, bytes: data.byteLength } };
+  }
+
+  if (typeof value.bytes === 'number' && value.bytes >= data.byteLength) {
+    const ranges = [];
+    for (let offset = data.byteLength; offset < value.bytes; offset += READ_CHUNK_BYTES) {
+      ranges.push({
+        offset,
+        length: Math.min(READ_CHUNK_BYTES, value.bytes - offset),
+      });
+    }
+    return readRanges(workspaceFiles, sessionId, path, ranges, signal, {
+      data,
+      version: value.version,
+    });
+  }
+
+  const chunks = [data];
+  let offset = data.byteLength;
+  let version = value.version;
+  for (;;) {
+    const result = await readWindow(workspaceFiles, sessionId, path, offset, READ_CHUNK_BYTES, signal);
+    if (result?.ok !== true) return result;
+    const next = result.value?.data;
+    if (!(next instanceof Uint8Array)) {
+      return failure(new Error('The workspace returned no byte window.'));
+    }
+    if (version === undefined) version = result.value.version;
+    else if (result.value.version !== undefined && result.value.version !== version) {
+      return changedFailure();
+    }
+    chunks.push(next);
+    if (result.value.eof) break;
+    if (next.byteLength === 0) {
+      return failure(new Error('The workspace returned an empty byte window.'));
+    }
+    offset += next.byteLength;
+  }
+  return mergeWindows(chunks, version);
+}
+
+/**
  * Read the root document bytes through the workspace Remote.
  *
  * Renderer-mode previews mount before the Host reads anything, so the body owns
- * the initial read (and the loading state that goes with it).
+ * the initial read (and the loading state that goes with it). A file is read
+ * through bounded-concurrency windows; complete bytes are cached per version.
  *
  * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
  * @param {string} address Document resource address.
@@ -110,25 +304,35 @@ async function readDocumentBytes(ctx, address, signal) {
     return failure(new Error('The workspaceFiles Remote is unavailable.'));
   }
 
-  const readLarge = async () => {
+  const key = `${parsed.sessionId}\n${parsed.path}`;
+  let info;
+  if (typeof workspaceFiles.stat === 'function') {
     try {
-      return await readChunked(workspaceFiles, parsed.sessionId, parsed.path, signal);
-    } catch (error) {
-      return failure(error);
+      const stat = await workspaceFiles.stat(parsed.sessionId, parsed.path, signal);
+      if (stat?.ok === true) info = stat.value;
+      else if (stat !== null && typeof stat === 'object' && typeof stat.bytes === 'number') info = stat;
+    } catch {
+      // stat is an optimization; the range reader still works without it.
     }
-  };
+  }
+
+  if (info?.version !== undefined) {
+    const cached = cacheGet(key, info.version);
+    if (cached !== null) {
+      return { ok: true, value: { data: cached, version: info.version, bytes: cached.byteLength } };
+    }
+  }
 
   try {
-    const result = await workspaceFiles.readBytes(parsed.sessionId, parsed.path, {}, signal);
-    if (result?.ok === false && result.error?.code === 'workspace-file/too-large') {
-      return readLarge();
+    const result = info !== undefined && typeof info.bytes === 'number'
+      ? await readBySize(workspaceFiles, parsed.sessionId, parsed.path, info.bytes, signal)
+      : await readWithoutStat(workspaceFiles, parsed.sessionId, parsed.path, signal);
+
+    if (result?.ok === true && result.value?.version !== undefined) {
+      cacheSet(key, result.value.version, result.value.data);
     }
     return result;
   } catch (error) {
-    if (error !== null && typeof error === 'object' && 'code' in error
-      && error.code === 'workspace-file/too-large') {
-      return readLarge();
-    }
     return failure(error);
   }
 }
