@@ -7,13 +7,13 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA、EXR、HDR 纹理。无需上传或联网：打开模型即可旋转、缩放、自动旋转、切换材质与环境，并播放内置动画。
+在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA、EXR、HDR 纹理。打开模型即可旋转、缩放、自动旋转、切换材质与环境，并播放内置动画。
 
 ![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
 ## 安装与启用
 
-插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `dist/client.js` 包含查看器与 Three.js 核心；模型 Loader 与 TGA、EXR、HDR 解码器都是包内懒加载 chunk，只在首次使用时加载。四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
+插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `dist/client.js` 包含查看器与 Three.js 核心；模型 Loader 与 TGA、EXR、HDR 解码器都是包内懒加载 chunk，只在首次使用时加载。四张 HDRI 随包分发，由只读宿主路由从本机 DSH 服务器提供。React 由 DSH 提供。
 
 ### 从 npm 安装（推荐）
 

@@ -7,13 +7,13 @@ English | [中文](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.zh
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures from the current session's workspace in DSH's right sidebar. No uploads or network: open a model, orbit, zoom, auto-rotate, switch materials and environments, and play embedded animations.
+Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures from the current session's workspace in DSH's right sidebar. Open a model, orbit, zoom, auto-rotate, switch materials and environments, and play embedded animations.
 
 ![3D Viewer preview](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
 ## Installation and enabling
 
-Distributed as the npm package `dsh-3d-viewer`. The prebuilt `dist/client.js` contains the viewer and Three.js core; model loaders and TGA, EXR, and HDR decoders are package-local lazy chunks fetched only on first use. The four HDRI files ship in the package and are served by a small read-only host route on the local DSH server, so no network access is needed at runtime. React comes from DSH.
+Distributed as the npm package `dsh-3d-viewer`. The prebuilt `dist/client.js` contains the viewer and Three.js core; model loaders and TGA, EXR, and HDR decoders are package-local lazy chunks fetched only on first use. The four HDRI files ship in the package and are served by a small read-only host route on the local DSH server. React comes from DSH.
 
 ### Install from npm (recommended)
 

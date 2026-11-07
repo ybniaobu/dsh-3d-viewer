@@ -21,7 +21,7 @@ Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures dire
 - Animation playback with clip switching, seeking, and progress
 - Mesh, vertex, triangle, and file-size statistics
 - Embedded lights, cameras, and audio in source files are ignored
-- Three.js is bundled; the HDRIs ship with the plugin and are served by a local host route; no uploads or network required
+- Three.js is bundled; the HDRIs ship with the plugin and are served by a local host route
 
 ## Install
 
