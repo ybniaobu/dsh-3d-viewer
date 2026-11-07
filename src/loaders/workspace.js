@@ -1,12 +1,23 @@
-import { Cache, ImageLoader, Loader, LoadingManager, Texture } from 'three';
+import {
+  Cache,
+  DataTexture,
+  ImageLoader,
+  Loader,
+  LoadingManager,
+  RGBAFormat,
+  Texture,
+  UnsignedByteType,
+} from 'three';
 import {
   ABSOLUTE_PATH,
   abortError,
   decodeLocalPath,
   isLocalPath,
   mimeOf,
+  toArrayBuffer,
   warn,
 } from '../bytes.js';
+import { asyncChunk } from './chunk-require.js';
 
 const FILE_ADDRESS_PREFIX = 'dsh-resource://file/';
 // Any relative/absolute local path can be an MTL/FBX texture. Schemes are
@@ -21,6 +32,85 @@ export const WHITE_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAA
 
 /** Shared image decoder; a LoadingManager per texture would be wasteful. */
 const IMAGE_LOADER = new ImageLoader(new LoadingManager());
+
+/** Lazily fetched TGA/EXR decoder chunks. */
+const textureChunkPromises = new Map();
+
+/**
+ * @param {string} path Texture path.
+ * @returns {'tga' | 'exr' | 'hdr' | null} Specialized decoder, if any.
+ */
+function textureFormatOf(path) {
+  const clean = String(path).split(/[?#]/, 1)[0].toLowerCase();
+  if (clean.endsWith('.tga')) return 'tga';
+  if (clean.endsWith('.exr')) return 'exr';
+  if (clean.endsWith('.hdr')) return 'hdr';
+  return null;
+}
+
+/**
+ * @param {string} format Texture format id.
+ * @returns {Promise<Record<string, unknown>>} Decoder chunk exports.
+ */
+function loadTextureChunk(format) {
+  const file = `./client.tex-${format}.js`;
+  let promise = textureChunkPromises.get(file);
+  if (promise === undefined) {
+    promise = asyncChunk(file);
+    textureChunkPromises.set(file, promise);
+    promise.catch(() => textureChunkPromises.delete(file));
+  }
+  return promise;
+}
+
+/**
+ * Decode a specialized texture through its lazy chunk.
+ *
+ * @param {'tga' | 'exr' | 'hdr'} format Texture format.
+ * @param {Uint8Array | ArrayBuffer} data Complete bytes.
+ * @returns {Promise<Texture>} Decoded texture.
+ */
+export async function decodeWorkspaceTexture(format, data) {
+  const module = await loadTextureChunk(format);
+  const decoders = { tga: 'decodeTga', exr: 'decodeExr', hdr: 'decodeHdr' };
+  const decode = module[decoders[format]];
+  if (typeof decode !== 'function') {
+    throw new Error(`The ${format.toUpperCase()} decoder chunk is unavailable.`);
+  }
+  return decode(toArrayBuffer(data));
+}
+
+/**
+ * Copy a decoded DataTexture's uploadable fields into the placeholder that is
+ * already attached to a material.
+ *
+ * @param {Texture} target Placeholder texture.
+ * @param {Texture} source Decoded texture.
+ * @returns {void}
+ */
+function adoptTexture(target, source) {
+  const hdr = source.userData?.dsh3dHdr === true;
+  const placeholderColorSpace = target.colorSpace;
+  target.image = source.image;
+  target.mipmaps = source.mipmaps;
+  target.mapping = source.mapping;
+  target.channel = source.channel;
+  target.format = source.format;
+  target.internalFormat = source.internalFormat;
+  target.type = source.type;
+  // A late TGA load must not overwrite the sRGB color space the material
+  // assigned to the placeholder. HDR/EXR, on the other hand, are linear.
+  target.colorSpace = hdr ? source.colorSpace : placeholderColorSpace;
+  target.flipY = source.flipY;
+  target.unpackAlignment = source.unpackAlignment;
+  target.minFilter = source.minFilter;
+  target.magFilter = source.magFilter;
+  target.generateMipmaps = source.generateMipmaps;
+  target.anisotropy = source.anisotropy;
+  target.userData = { ...source.userData };
+  target.needsUpdate = true;
+  source.dispose();
+}
 
 /**
  * Parse a `dsh-resource://file/...` address into its session and path.
@@ -153,7 +243,13 @@ class WorkspaceTextureLoader extends Loader {
   }
 
   load(url, onLoad, onProgress, onError) {
-    const texture = new Texture();
+    const localPath = isLocalPath(url) ? decodeLocalPath(url) : null;
+    const localFormat = localPath === null ? null : textureFormatOf(localPath);
+    // TGA/EXR/HDR decode to raw pixel data; the uploader only takes the
+    // DataTexture path for those, so the placeholder must be one from the start.
+    const texture = localFormat === null
+      ? new Texture()
+      : new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, RGBAFormat, UnsignedByteType);
     texture.name = url;
 
     const task = (async () => {
@@ -164,14 +260,25 @@ class WorkspaceTextureLoader extends Loader {
         }
 
         let imageUrl = url;
-        if (isLocalPath(url)) {
-          const path = decodeLocalPath(url);
+        if (localPath !== null) {
+          const path = localPath;
           const result = await readWithBasenameFallback(this.readFile, path);
           if (result === undefined || result.ok !== true) {
             throw new Error(result?.error?.message ?? `Could not read texture ${url}`);
           }
           if (this.signal?.aborted === true || this.disposed?.() === true) {
             throw abortError('Texture loading was cancelled.');
+          }
+
+          if (localFormat !== null) {
+            const decoded = await decodeWorkspaceTexture(localFormat, result.value.data);
+            if (this.signal?.aborted === true || this.disposed?.() === true) {
+              decoded.dispose();
+              throw abortError('Texture loading was cancelled.');
+            }
+            adoptTexture(texture, decoded);
+            onLoad?.(texture);
+            return;
           }
 
           blobUrl = URL.createObjectURL(new Blob([result.value.data], { type: mimeOf(path) }));
@@ -188,10 +295,15 @@ class WorkspaceTextureLoader extends Loader {
         }
         if (this.signal?.aborted !== true && this.disposed?.() !== true) {
           this.onWarn?.(`[dsh-3d-viewer] Could not load texture "${url}": ${String(error)}`);
-          try {
-            await loadImage(texture, WHITE_PIXEL, this.signal);
-          } catch {
-            // Keep the empty placeholder when even the fallback cannot decode.
+          if (localFormat !== null) {
+            texture.image = { data: new Uint8Array([255, 255, 255, 255]), width: 1, height: 1 };
+            texture.needsUpdate = true;
+          } else {
+            try {
+              await loadImage(texture, WHITE_PIXEL, this.signal);
+            } catch {
+              // Keep the empty placeholder when even the fallback cannot decode.
+            }
           }
           onLoad?.(texture);
           onError?.(error);

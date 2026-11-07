@@ -1,12 +1,16 @@
 {
   "name": "dsh-3d-viewer",
-  "version": "0.1.1",
-  "description": "Render FBX, OBJ, glTF, GLB, and STL models from the right Sidebar's workspace file tree in an orbitable 3D view.",
+  "version": "0.2.0",
+  "description": "Render FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures from the right Sidebar's workspace file tree in an orbitable view.",
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
-    "3d-viewer"
+    "3d-viewer",
+    "texture",
+    "tga",
+    "exr",
+    "hdr"
   ],
   "repository": {
     "type": "git",
@@ -20,13 +24,14 @@
   "icon": "./icon.svg",
   "exports": {
     ".": "./index.js",
-    "./client": "./client.js",
+    "./client": "./dist/client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
-    "client.js",
+    "dist/client.js",
+    "dist/client.*.js",
     "index.js",
     "cordis.patch.yml",
     "locale/*.json",

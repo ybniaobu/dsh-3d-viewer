@@ -64,7 +64,7 @@ void main() {
 }
 `;
 
-const _depthProbe = new Vector4();
+const depthProbe = new Vector4();
 
 /** Rasterized grid pixels, shared by every viewer on the page. */
 let gridPixelCache = null;
@@ -93,8 +93,8 @@ export function niceGridStep(size) {
  * @returns {number} Depth in [0, 1].
  */
 function projectionWindowDepth(camera, viewDistance) {
-  _depthProbe.set(0, 0, -viewDistance, 1).applyMatrix4(camera.projectionMatrix);
-  return (_depthProbe.z / _depthProbe.w) * 0.5 + 0.5;
+  depthProbe.set(0, 0, -viewDistance, 1).applyMatrix4(camera.projectionMatrix);
+  return (depthProbe.z / depthProbe.w) * 0.5 + 0.5;
 }
 
 /**

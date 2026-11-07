@@ -38,12 +38,13 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and verify client.js
+      - name: Build and verify client bundles
         if: steps.check.outputs.exists == 'false'
         run: |
           npm run build
-          if ! git diff --exit-code -- client.js; then
-            echo "::error file=client.js::client.js is stale; run 'npm run build' and commit the result before releasing."
+          if [ -n "$(git status --porcelain -- dist/client.js dist/client.*.js)" ]; then
+            git status --short -- dist/client.js dist/client.*.js
+            echo "::error::dist/client.js or a format chunk is stale; run 'npm run build' and commit the result before releasing."
             exit 1
           fi
 

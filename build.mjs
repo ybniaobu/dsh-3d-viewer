@@ -6,8 +6,10 @@ import esbuild from 'esbuild';
 const root = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
 const bundlePath = resolve(root, '.build/client.bundle.cjs');
+const distDir = resolve(root, 'dist');
 
 await mkdir(dirname(bundlePath), { recursive: true });
+await mkdir(distDir, { recursive: true });
 
 // Use the JS API rather than node_modules/esbuild/bin/esbuild: that path is a
 // JS shim on Windows but the native binary on Linux, so spawning it with node
@@ -31,10 +33,11 @@ await esbuild.build({
 });
 
 const code = (await readFile(bundlePath, 'utf8')).trimEnd();
-const wrapped = `/*! dsh-3d-viewer | bundles Three.js (MIT), FBXLoader, OBJLoader, MTLLoader, GLTFLoader, STLLoader, OrbitControls and HDRLoader (MIT). The four Poly Haven CC0 HDRIs ship as files and are served by the host route in index.js. See THIRD_PARTY_NOTICES.md for third-party licenses. */
+const wrapped = `/*! dsh-3d-viewer | entry bundle: Three.js core, OrbitControls, HDRLoader and post-processing (MIT). FBX, OBJ, glTF/GLB and STL loaders are package-local lazy chunks. HDRIs ship as files and are served by the host route in index.js. See THIRD_PARTY_NOTICES.md for third-party licenses. */
 window.__ModuleLoader__.load({
   id: ${JSON.stringify(pkg.name)},
   factory(require) {
+    globalThis.__DSH3DV_REQUIRE__ = require;
     var module = { exports: {} };
     var exports = module.exports;
 ${code}
@@ -43,5 +46,54 @@ ${code}
 });
 `;
 
-await writeFile(resolve(root, 'client.js'), wrapped);
-console.log(`Built client.js (${Buffer.byteLength(wrapped)} bytes) for ${pkg.name}.`);
+await writeFile(resolve(distDir, 'client.js'), wrapped);
+console.log(`Built dist/client.js (${Buffer.byteLength(wrapped)} bytes) for ${pkg.name}.`);
+
+// Format loaders are package-local chunks. They are self-contained CJS and
+// receive the entry bundle's Three instance through a tiny require shim, so a
+// format is only downloaded when it is first opened.
+const CHUNK_NAMES = ['fbx', 'obj', 'gltf', 'stl', 'tex-tga', 'tex-exr', 'tex-hdr'];
+for (const name of CHUNK_NAMES) {
+  const chunkBundle = resolve(root, `.build/chunk-${name}.cjs`);
+  await esbuild.build({
+    absWorkingDir: root,
+    entryPoints: [resolve(root, `src/loaders/chunks/${name}.js`)],
+    bundle: true,
+    format: 'cjs',
+    platform: 'browser',
+    target: ['chrome120', 'edge120'],
+    // Externalise only the bare package. esbuild's string `external` also
+    // matches subpaths, which would leave `three/addons/*` as a require that a
+    // chunk cannot resolve.
+    plugins: [{
+      name: 'three-exact',
+      setup(build) {
+        build.onResolve({ filter: /^three$/ }, () => ({ path: 'three', external: true }));
+      },
+    }],
+    minify: true,
+    legalComments: 'none',
+    logLevel: 'warning',
+    outfile: chunkBundle,
+  });
+
+  const chunkCode = (await readFile(chunkBundle, 'utf8')).trimEnd();
+  const chunkName = `client.${name}.js`;
+  const chunkWrapped = `/*! dsh-3d-viewer ${name} loader chunk | bundles Three.js addons (MIT). See THIRD_PARTY_NOTICES.md. */
+window.__ModuleLoader__.load({
+  id: ${JSON.stringify(pkg.name)},
+  chunk: ${JSON.stringify(chunkName)},
+  factory(require) {
+    var localRequire = (id) => id === 'three' ? globalThis.__DSH3DV_THREE__ : require(id);
+    var module = { exports: {} };
+    var exports = module.exports;
+    (function (require, module, exports) {
+${chunkCode}
+    })(localRequire, module, module.exports);
+    return module.exports;
+  },
+});
+`;
+  await writeFile(resolve(distDir, chunkName), chunkWrapped);
+  console.log(`Built dist/${chunkName} (${Buffer.byteLength(chunkWrapped)} bytes) for ${pkg.name}.`);
+}

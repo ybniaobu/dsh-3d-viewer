@@ -249,7 +249,14 @@ export function Hint({ t }) {
   return h('div', { className: 'dsh3dv-hint' }, t('hint'));
 }
 
-export function StatusOverlay({ status, failure, onRetry, t }) {
+export function StatusOverlay({
+  status,
+  failure,
+  onRetry,
+  t,
+  loadingKey = 'loading',
+  errorTitleKey = 'errorTitle',
+}) {
   if (status === 'loading') {
     return h('div', { className: 'dsh3dv-overlay', 'data-dsh3d-status': 'loading' },
       h('div', {
@@ -257,8 +264,19 @@ export function StatusOverlay({ status, failure, onRetry, t }) {
         role: 'status',
         'aria-live': 'polite',
       },
-      h('span', { className: 'dsh3dv-spinner', 'aria-hidden': true }),
-      h('span', null, t('loading'))));
+      h('span', { className: 'dsh3dv-spinner', 'aria-hidden': true },
+        h('svg', { className: 'dsh3dv-spinner-ring', viewBox: '0 0 16 16' },
+          h('circle', {
+            cx: 8,
+            cy: 8,
+            r: 6,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: 2,
+            strokeLinecap: 'round',
+            strokeDasharray: '28 10',
+          }))),
+      h('span', null, t(loadingKey))));
   }
 
   if (status === 'empty') {
@@ -273,7 +291,7 @@ export function StatusOverlay({ status, failure, onRetry, t }) {
     return h('div', { className: 'dsh3dv-overlay', 'data-dsh3d-status': 'error' },
       h('div', { className: 'dsh3dv-panel dsh3dv-panel--error', role: 'alert' },
         h('div', { className: 'dsh3dv-panel-icon' }, h(CubeIcon)),
-        h('p', { className: 'dsh3dv-panel-title' }, t('errorTitle')),
+        h('p', { className: 'dsh3dv-panel-title' }, t(errorTitleKey)),
         h('p', { className: 'dsh3dv-panel-text' }, errorText(failure, t)),
         h('div', { className: 'dsh3dv-actions' },
           h('button', {

@@ -8,7 +8,12 @@ import {
   PerspectiveCamera,
 } from 'three';
 import { loadModelBytes } from '../src/loaders/model-loader.js';
+import { loadGltfModel } from '../src/loaders/gltf.js';
 import { disposeObject, stripEmbeddedSceneNodes } from '../src/model.js';
+
+globalThis.__DSH3DV_REQUIRE__ = {
+  async: async () => ({ loadGltfModel }),
+};
 
 const root = new Group();
 const mesh = new Mesh(new BoxGeometry(), new MeshStandardMaterial());

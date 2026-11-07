@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { collectModelStats, disposeObject, parseModelBytes, parseObjBytes } from '../src/model.js';
+import { collectModelStats, disposeObject } from '../src/model.js';
+import { parseObjBytes } from '../src/loaders/obj.js';
 
 const encoder = new TextEncoder();
 const square = `# unit square
@@ -36,7 +37,7 @@ assert.equal(mesh.material.flatShading, true, 's off should select flat shading'
 assert.equal(mesh.geometry.getAttribute('normal').count, 6);
 assert.equal(mesh.geometry.getAttribute('uv').count, 6);
 
-const dispatched = parseModelBytes(encoder.encode(square), 'obj');
+const dispatched = parseObjBytes(encoder.encode(square));
 assert.equal(collectModelStats(dispatched).triangles, 2);
 dispatched.removeFromParent();
 disposeObject(dispatched);

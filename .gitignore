@@ -1,36 +1,22 @@
 # Dependencies
 node_modules/
-.pnpm-store/
 .npm-cache/
-.pnp.*
-jspm_packages/
 
 # Build output and caches
-# NOTE: client.js is the shipped runtime artifact; do not ignore it.
 .build/
-dist/
 coverage/
-.nyc_output/
-*.tsbuildinfo
 .eslintcache
-.stylelintcache
-.cache/
 
 # Temporary downloads
-.tmp-hdri/
 .tools/
+.tmp-*/
 
-# Local sample models (not distributed; see samples/README.md)
+# Local sample models (not distributed)
 samples/
 
 # Logs
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
 # npm pack output
 *.tgz
@@ -74,7 +60,6 @@ $RECYCLE.BIN/
 tmp/
 temp/
 .tmp/
-.tmp-*/
 *.tmp
 *.temp
 *.pid

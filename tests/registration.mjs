@@ -18,7 +18,7 @@ const window = {
   },
 };
 
-const bundle = await readFile(new URL('../client.js', import.meta.url), 'utf8');
+const bundle = await readFile(new URL('../dist/client.js', import.meta.url), 'utf8');
 new Function('window', bundle)(window);
 assert.equal(entry.id, 'dsh-3d-viewer');
 
@@ -28,7 +28,53 @@ const registration = {
   injectKeys: [],
   effects: [],
 };
+
+// Exercise the >32 MiB fallback end to end: the full read rejects, and the
+// body assembles the same bytes from 2 MiB windows.
+const largeFile = new Uint8Array(5 * 1024 * 1024);
+for (let index = 0; index < largeFile.length; index += 1) largeFile[index] = index % 251;
+
+let statCalls = 0;
+let rangeCalls = 0;
+let inFlight = 0;
+let maxInFlight = 0;
+
+const remote = {
+  workspaceFiles: {
+    async stat() {
+      statCalls += 1;
+      return { ok: true, value: { version: 'v1', bytes: largeFile.length } };
+    },
+    async readBytes(_sessionId, _path, request) {
+      if (request.range === undefined) {
+        return { ok: false, error: { code: 'workspace-file/too-large', message: 'too large' } };
+      }
+      rangeCalls += 1;
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const { offset, length } = request.range;
+        const end = Math.min(offset + length, largeFile.length);
+        return {
+          ok: true,
+          value: {
+            data: largeFile.subarray(offset, end),
+            offset,
+            eof: end >= largeFile.length,
+            version: 'v1',
+            bytes: largeFile.length,
+          },
+        };
+      } finally {
+        inFlight -= 1;
+      }
+    },
+  },
+};
+
 const ctx = {
+  remote,
   locale: {
     bind(namespace) {
       registration.namespace = namespace;
@@ -67,28 +113,37 @@ const moduleExports = entry.factory((name) => {
 moduleExports.apply(ctx);
 
 assert.deepEqual(moduleExports.inject, ['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles']);
-assert.equal(registration.definitions.length, 4);
-assert.equal(registration.slots.length, 4);
+assert.equal(registration.definitions.length, 7);
+assert.equal(registration.slots.length, 7);
 assert.deepEqual(registration.injectKeys, [
   'sidebar.right.tab.document',
   'sidebar.right.tab.document',
   'sidebar.right.tab.document',
   'sidebar.right.tab.document',
+  'sidebar.right.tab.document',
+  'sidebar.right.tab.document',
+  'sidebar.right.tab.document',
 ]);
-assert.equal(registration.effects.length, 9);
+assert.equal(registration.effects.length, 15);
 
 const fbx = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/fbx');
 const obj = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/obj');
 const gltf = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/gltf');
 const stl = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/stl');
+const tga = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/tga');
+const exr = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/exr');
+const hdr = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/hdr');
 assert.ok(fbx, 'FBX preview should be registered');
 assert.ok(obj, 'OBJ preview should be registered');
 assert.ok(gltf, 'glTF preview should be registered');
 assert.ok(stl, 'STL preview should be registered');
+assert.ok(tga, 'TGA preview should be registered');
+assert.ok(exr, 'EXR preview should be registered');
+assert.ok(hdr, 'HDR preview should be registered');
 
-for (const definition of [fbx, obj, gltf, stl]) {
+for (const definition of [fbx, obj, gltf, stl, tga, exr, hdr]) {
   assert.equal(definition.priority, 'extension');
-  assert.equal(definition.loading, 'bytes-complete');
+  assert.equal(definition.loading, 'renderer');
   assert.equal(definition.wrap, false);
 }
 
@@ -104,8 +159,17 @@ assert.equal(gltf.title(), 'gltfRendererTitle');
 assert.deepEqual(stl.extensions, ['stl']);
 assert.deepEqual(stl.binaryExtensions, ['stl']);
 assert.equal(stl.title(), 'stlRendererTitle');
+assert.deepEqual(tga.extensions, ['tga']);
+assert.deepEqual(tga.binaryExtensions, ['tga']);
+assert.equal(tga.title(), 'tgaRendererTitle');
+assert.deepEqual(exr.extensions, ['exr']);
+assert.deepEqual(exr.binaryExtensions, ['exr']);
+assert.equal(exr.title(), 'exrRendererTitle');
+assert.deepEqual(hdr.extensions, ['hdr']);
+assert.deepEqual(hdr.binaryExtensions, ['hdr']);
+assert.equal(hdr.title(), 'hdrRendererTitle');
 
-for (const definition of [fbx, obj, gltf, stl]) {
+for (const definition of [fbx, obj, gltf, stl, tga, exr, hdr]) {
   const slot = registration.slots.find((candidate) => candidate.options.key === definition.id);
   assert.ok(slot, `missing body for ${definition.id}`);
   assert.equal(slot.options.name, 'sidebar.right.tab.document');
@@ -114,6 +178,56 @@ for (const definition of [fbx, obj, gltf, stl]) {
   const injected = slot.options.inject();
   assert.equal(typeof injected.fallbackT, 'function');
   assert.equal(typeof injected.readWorkspaceFile, 'function');
+  assert.equal(typeof injected.loadBytes, 'function');
+}
+
+const fbxSlot = registration.slots.find((slot) => slot.options.key === 'dsh-3d-viewer/fbx');
+const large = await fbxSlot.options.inject().loadBytes(
+  'dsh-resource://file/session/s1/samples/source/datsun240k.fbx',
+  new AbortController().signal,
+);
+assert.equal(large.ok, true);
+assert.equal(large.value.data.length, largeFile.length);
+assert.equal(large.value.version, 'v1');
+assert.equal(large.value.data[0], largeFile[0]);
+assert.equal(large.value.data[largeFile.length - 1], largeFile[largeFile.length - 1]);
+assert.ok(maxInFlight > 1, 'large windows should be read concurrently');
+
+const firstRangeCalls = rangeCalls;
+const cached = await fbxSlot.options.inject().loadBytes(
+  'dsh-resource://file/session/s1/samples/source/datsun240k.fbx',
+  new AbortController().signal,
+);
+assert.equal(cached.ok, true);
+assert.equal(cached.value.data.length, largeFile.length);
+assert.equal(statCalls, 2, 'the cached read still checks the file version');
+assert.equal(rangeCalls, firstRangeCalls, 'a version hit must not read the file again');
+
+const originalStat = remote.workspaceFiles.stat;
+const originalReadBytes = remote.workspaceFiles.readBytes;
+try {
+  remote.workspaceFiles.stat = async () => ({
+    ok: true,
+    value: { version: 'v1', bytes: 3 },
+  });
+  remote.workspaceFiles.readBytes = async () => ({
+    ok: true,
+    value: {
+      data: new Uint8Array([1, 2, 3]),
+      version: 'v2',
+      eof: true,
+      bytes: 5,
+    },
+  });
+  const race = await fbxSlot.options.inject().loadBytes(
+    'dsh-resource://file/session/s1/samples/source/race.fbx',
+    new AbortController().signal,
+  );
+  assert.equal(race.ok, false, 'a changed file must not populate the cache');
+  assert.equal(race.error.code, 'workspace-file/changed');
+} finally {
+  remote.workspaceFiles.stat = originalStat;
+  remote.workspaceFiles.readBytes = originalReadBytes;
 }
 
 console.log('Registration verified:', {

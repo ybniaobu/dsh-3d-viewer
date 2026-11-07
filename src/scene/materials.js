@@ -77,6 +77,29 @@ export function pbrRoughness(material) {
 }
 
 /**
+ * Normalize the color spaces of the texture slots the preview understands.
+ *
+ * EXR data is linear even when it feeds a color slot, so it opts out via the
+ * `dsh3dHdr` marker set by the lazy decoder.
+ *
+ * @param {import('three').Material} material Source or converted material.
+ * @returns {void}
+ */
+function normalizeTextureSlots(material) {
+  for (const slot of TEXTURE_SLOTS) {
+    const texture = material[slot];
+    if (texture === null || texture === undefined) continue;
+    if (texture.userData?.dsh3dHdr === true) {
+      texture.colorSpace = NoColorSpace;
+      continue;
+    }
+    // Color maps are decoded from sRGB by the shader; normal/AO/alpha/
+    // displacement/bump maps stay linear.
+    texture.colorSpace = SRGB_TEXTURE_SLOTS.has(slot) ? SRGBColorSpace : NoColorSpace;
+  }
+}
+
+/**
  * Replace an FBX Phong/Lambert material with a metallic-roughness PBR material.
  *
  * Three's MeshStandardMaterial is its Cook-Torrance path and evaluates
@@ -91,7 +114,10 @@ export function pbrRoughness(material) {
 export function toPbrMaterial(source, cache) {
   if (source === null || source === undefined) return source;
   if (Array.isArray(source)) return source.map((entry) => toPbrMaterial(entry, cache));
-  if (source.isMeshStandardMaterial === true || source.isMeshPhysicalMaterial === true) return source;
+  if (source.isMeshStandardMaterial === true || source.isMeshPhysicalMaterial === true) {
+    normalizeTextureSlots(source);
+    return source;
+  }
 
   const cached = cache.get(source.uuid);
   if (cached !== undefined) return cached;
@@ -108,15 +134,8 @@ export function toPbrMaterial(source, cache) {
   for (const slot of TEXTURE_SLOTS) {
     pbr[slot] = source[slot] ?? null;
   }
+  normalizeTextureSlots(pbr);
   if (source.normalScale !== undefined) pbr.normalScale.copy(source.normalScale);
-
-  // Normalize texture color spaces explicitly. Color maps are decoded from
-  // sRGB by the shader; normal/AO/alpha/displacement/bump maps stay linear.
-  for (const slot of TEXTURE_SLOTS) {
-    const texture = pbr[slot];
-    if (texture === null) continue;
-    texture.colorSpace = SRGB_TEXTURE_SLOTS.has(slot) ? SRGBColorSpace : NoColorSpace;
-  }
 
   const fbxRoughness = source.userData?.fbxRoughness;
   pbr.roughness = typeof fbxRoughness === 'number' && Number.isFinite(fbxRoughness)

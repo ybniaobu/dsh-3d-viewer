@@ -1,11 +1,4 @@
-import {
-  ACESFilmicToneMapping,
-  PCFSoftShadowMap,
-  PerspectiveCamera,
-  Scene,
-  SRGBColorSpace,
-  WebGLRenderer,
-} from 'three';
+import { PerspectiveCamera, Scene, Spherical, Vector3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { disposeObject } from '../model.js';
 import { createAnimationController } from './animation.js';
@@ -16,9 +9,13 @@ import { createLighting } from './lighting.js';
 import { createMaterialController } from './materials.js';
 import { createPostProcessing } from './postprocessing.js';
 import { createRenderLoop } from './render-loop.js';
-import { ViewerError } from './viewer-error.js';
+import { configureViewerRenderer } from './renderer.js';
+import { rendererPool } from './renderer-pool.js';
 
 const MAX_PIXEL_RATIO = 2;
+const AUTO_ROTATE_SECONDS = 15;
+// Positive theta moves the camera clockwise when viewed from above.
+const AUTO_ROTATE_RADIANS_PER_SECOND = (Math.PI * 2) / AUTO_ROTATE_SECONDS;
 
 /** Device pixel ratio, clamped so 4K/5K displays do not quadruple the cost. */
 function readPixelRatio() {
@@ -50,20 +47,16 @@ function readPixelRatio() {
  *   setWireframe: (enabled: boolean) => boolean,
  *   reset: () => void,
  *   invalidate: () => void,
+ *   paint: () => void,
+ *   warmup: () => Promise<void>,
+ *   environmentReady: Promise<void>,
  *   dispose: () => void,
  * }} View controls.
  */
 export function createSceneView(host, object, stats, options = {}) {
-  let renderer;
-  try {
-    renderer = new WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
-  } catch (error) {
-    throw new ViewerError('webgl', 'A WebGL context could not be created.', error);
-  }
+  const poolEntry = rendererPool.acquire();
+  const renderer = poolEntry.renderer;
+  configureViewerRenderer(renderer);
 
   const canvas = renderer.domElement;
   canvas.className = 'dsh3dv-canvas';
@@ -80,12 +73,6 @@ export function createSceneView(host, object, stats, options = {}) {
 
   renderer.setPixelRatio(initialPixelRatio);
   renderer.setSize(initialWidth, initialHeight, false);
-  renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  renderer.setClearColor(0x000000, 0);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
 
   const scene = new Scene();
   const camera = new PerspectiveCamera(38, initialWidth / initialHeight, 0.1, 1000);
@@ -130,11 +117,18 @@ export function createSceneView(host, object, stats, options = {}) {
   controls.rotateSpeed = 0.9;
   controls.zoomSpeed = 0.9;
   controls.panSpeed = 0.8;
-  controls.autoRotateSpeed = 1.6;
   controls.minPolarAngle = 0.02;
   controls.maxPolarAngle = Math.PI * 0.98;
 
   let autoRotate = false;
+  let interacting = false;
+  let autoStartTime = 0;
+  let autoStartTheta = 0;
+  let autoRadius = 1;
+  let autoPhi = Math.PI / 2;
+  const autoOffset = new Vector3();
+  const autoSpherical = new Spherical();
+  const autoPosition = new Vector3();
   let disposed = false;
   let onScreen = true;
   let lastWidth = 0;
@@ -146,21 +140,49 @@ export function createSceneView(host, object, stats, options = {}) {
   let resizeObserver;
   let intersectionObserver;
 
+  function beginAutoRotate() {
+    autoOffset.copy(camera.position).sub(controls.target);
+    autoSpherical.setFromVector3(autoOffset);
+    autoStartTheta = autoSpherical.theta;
+    autoPhi = autoSpherical.phi;
+    autoRadius = autoSpherical.radius;
+    autoStartTime = performance.now();
+  }
+
+  function updateAutoRotate(timestamp) {
+    const elapsed = Math.max(0, (timestamp - autoStartTime) / 1000);
+    const theta = autoStartTheta + elapsed * AUTO_ROTATE_RADIANS_PER_SECOND;
+    autoPosition.setFromSphericalCoords(autoRadius, autoPhi, theta).add(controls.target);
+    camera.position.copy(autoPosition);
+    camera.lookAt(controls.target);
+  }
+
   const loop = createRenderLoop((delta, timestamp) => {
     animation.update(delta, timestamp);
-    if (autoRotate) controls.update();
+    if (autoRotate && !interacting) updateAutoRotate(timestamp);
     post.render(delta);
   });
 
   // The environment is fetched from the Host route, so the first selection
   // finishes after the model is already framed: PMREM leaves its own render
   // target bound, and the view repaints once the target is applied.
+  let resolveEnvironmentReady;
+  const environmentReady = new Promise((resolve) => {
+    resolveEnvironmentReady = resolve;
+  });
+
   const environment = createEnvironment({
     renderer,
     scene,
+    cache: poolEntry.environment,
     onReady: () => {
+      resolveEnvironmentReady();
       renderer.setRenderTarget(null);
       loop.invalidate();
+    },
+    onError: () => {
+      // A failed HDRI must not keep the view on its loading overlay forever.
+      resolveEnvironmentReady();
     },
   });
   environment.set(options.environment ?? DEFAULT_ENVIRONMENT);
@@ -171,10 +193,13 @@ export function createSceneView(host, object, stats, options = {}) {
     const targetZ = controls.target.z;
 
     // Auto-rotation changes the camera orientation but not its distance or
-    // target, so the grid and clip planes can stay untouched in that case.
-    if (distance === lastSyncDistance
-      && targetX === lastSyncTargetX
-      && targetZ === lastSyncTargetZ) {
+    // target. Use a small tolerance: OrbitControls' spherical integration can
+    // leave tiny floating-point differences, and updating the clip planes and
+    // grid uniforms every frame makes the grid visibly tremble.
+    const tolerance = Math.max(maxDimension * 1e-6, 1e-9);
+    if (Math.abs(distance - lastSyncDistance) <= tolerance
+      && Math.abs(targetX - lastSyncTargetX) <= tolerance
+      && Math.abs(targetZ - lastSyncTargetZ) <= tolerance) {
       return;
     }
     lastSyncDistance = distance;
@@ -193,7 +218,20 @@ export function createSceneView(host, object, stats, options = {}) {
     }
   }
 
+  function onControlsStart() {
+    interacting = true;
+  }
+
+  function onControlsEnd() {
+    interacting = false;
+    if (autoRotate) beginAutoRotate();
+    syncView();
+    loop.invalidate();
+  }
+
   function onControlsChange() {
+    // Auto-rotate no longer goes through OrbitControls, so every change event
+    // here comes from a user interaction (orbit, zoom, or pan).
     syncView();
     loop.invalidate();
   }
@@ -227,6 +265,7 @@ export function createSceneView(host, object, stats, options = {}) {
     if (!isOrbitKey(event.key)) return;
     event.preventDefault();
     orbitByKey(camera, controls, event.key);
+    if (autoRotate) beginAutoRotate();
     loop.invalidate();
   }
 
@@ -235,7 +274,9 @@ export function createSceneView(host, object, stats, options = {}) {
   }
 
   function onVisibilityChange() {
-    loop.setActive(onScreen && !document.hidden);
+    const active = onScreen && !document.hidden;
+    loop.setActive(active);
+    if (active && autoRotate) beginAutoRotate();
   }
 
   function setAutoRotate(enabled) {
@@ -243,7 +284,7 @@ export function createSceneView(host, object, stats, options = {}) {
     if (next === autoRotate) return false;
 
     autoRotate = next;
-    controls.autoRotate = next;
+    if (next) beginAutoRotate();
     updateLoop();
     if (!next) loop.invalidate();
     return true;
@@ -301,6 +342,7 @@ export function createSceneView(host, object, stats, options = {}) {
 
   function reset() {
     frameModel(camera, controls, stats, maxDimension);
+    if (autoRotate) beginAutoRotate();
     syncView();
     loop.invalidate();
   }
@@ -309,9 +351,26 @@ export function createSceneView(host, object, stats, options = {}) {
     loop.invalidate();
   }
 
+  function paint() {
+    if (disposed) return;
+    animation.update(0, performance.now());
+    post.render(0);
+  }
+
+  async function warmup() {
+    if (disposed) return;
+
+    // Compile the scene materials and the post-processing pass before the
+    // first visible frame. A synchronous compile is faster than polling
+    // compileAsync for these few programs; the loading overlay covers it.
+    renderer.compile(scene, camera);
+    post.warmup(renderer);
+  }
+
   function dispose() {
     if (disposed) return;
     disposed = true;
+    resolveEnvironmentReady();
 
     loop.dispose();
     resizeObserver?.disconnect();
@@ -319,6 +378,8 @@ export function createSceneView(host, object, stats, options = {}) {
     window.removeEventListener('resize', resize);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     controls.removeEventListener('change', onControlsChange);
+    controls.removeEventListener('start', onControlsStart);
+    controls.removeEventListener('end', onControlsEnd);
     canvas.removeEventListener('keydown', onKeyDown);
     canvas.removeEventListener('pointerdown', onPointerDown);
     animationListeners.clear();
@@ -332,12 +393,12 @@ export function createSceneView(host, object, stats, options = {}) {
     post.dispose();
     disposeObject(scene);
     scene.clear();
-    renderer.dispose();
-    renderer.forceContextLoss();
-    canvas.remove();
+    rendererPool.release(poolEntry);
   }
 
   controls.addEventListener('change', onControlsChange);
+  controls.addEventListener('start', onControlsStart);
+  controls.addEventListener('end', onControlsEnd);
   canvas.addEventListener('keydown', onKeyDown);
   canvas.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('resize', resize);
@@ -378,6 +439,9 @@ export function createSceneView(host, object, stats, options = {}) {
     setWireframe,
     reset,
     invalidate,
+    paint,
+    warmup,
+    environmentReady,
     dispose,
   };
 }

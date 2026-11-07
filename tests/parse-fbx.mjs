@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 // sample carries an orthographic camera, so Node needs the browser values.
 globalThis.window = { innerWidth: 1024, innerHeight: 768 };
 
-const { collectModelStats, disposeObject, parseFbxBytes } = await import('../src/model.js');
+const { collectModelStats, disposeObject } = await import('../src/model.js');
+const { parseFbxBytes } = await import('../src/loaders/fbx.js');
 
 const sampleUrl = new URL('../samples/PreviewSphere.fbx', import.meta.url);
 if (!existsSync(fileURLToPath(sampleUrl))) {

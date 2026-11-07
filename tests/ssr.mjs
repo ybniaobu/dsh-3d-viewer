@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ViewerSurface } from '../src/ui/ViewerSurface.js';
+import { ViewerSurface } from '../src/ui/viewer-surface.js';
+import { CSS } from '../src/ui/styles.js';
 
-// 1. Bundle integration: the plugin registers four bodies, and a newly opened
+// 1. Bundle integration: the plugin registers seven bodies, and a newly opened
 //    document renders its loading state without touching WebGL.
 let entry;
 const window = {
@@ -15,16 +16,22 @@ const window = {
   },
 };
 
-const bundle = await readFile(new URL('../client.js', import.meta.url), 'utf8');
+const bundle = await readFile(new URL('../dist/client.js', import.meta.url), 'utf8');
 new Function('window', bundle)(window);
 
 const components = [];
+const definitions = [];
 const ctx = {
   locale: {
     bind: () => (key) => key,
     register: () => () => {},
   },
-  documentPreviews: { register: () => () => {} },
+  documentPreviews: {
+    register: (definition) => {
+      definitions.push(definition);
+      return () => {};
+    },
+  },
   slots: {
     inject: (_key, callback) => callback(),
     register: (options, body) => {
@@ -40,9 +47,20 @@ const moduleExports = entry.factory((name) => {
   throw new Error(`unexpected runtime import: ${name}`);
 });
 moduleExports.apply(ctx);
-assert.equal(components.length, 4);
+assert.equal(components.length, 7);
+assert.equal(definitions.length, 7);
+assert.ok(definitions.every((definition) => definition.loading === 'renderer'));
 const component = components.find(({ key }) => key === 'dsh-3d-viewer/obj')?.body;
 assert.equal(typeof component, 'function');
+const textureComponent = components.find(({ key }) => key === 'dsh-3d-viewer/tga')?.body;
+assert.equal(typeof textureComponent, 'function');
+const textureLoadingHtml = renderToStaticMarkup(React.createElement(textureComponent, {
+  content: { kind: 'bytes', data: new Uint8Array([1, 2, 3]) },
+  t: (key) => key,
+}));
+assert.match(textureLoadingHtml, /data-dsh3d-texture/);
+assert.match(textureLoadingHtml, /tabindex="0"/);
+assert.match(textureLoadingHtml, /aria-label="textureKeyboardHelp"/);
 
 const loadingHtml = renderToStaticMarkup(React.createElement(component, {
   content: { kind: 'bytes', data: new Uint8Array([1, 2, 3]) },
@@ -54,7 +72,13 @@ assert.match(loadingHtml, /data-dsh3d-format="obj"/);
 assert.match(loadingHtml, /data-dsh3d-status="loading"/);
 assert.match(loadingHtml, /--dsw-alias-label-primary/);
 assert.match(loadingHtml, /background:#fff/);
+assert.match(loadingHtml, /dsh3dv-loading-in/);
+assert.match(CSS, /\.dsh3dv-overlay\[data-dsh3d-status="loading"\]\{animation:dsh3dv-loading-in \.16s ease \.36s both\}/);
+assert.match(CSS, /@keyframes dsh3dv-loading-in\{from\{opacity:0\}to\{opacity:1\}\}/);
 assert.match(loadingHtml, /class="dsh3dv-spinner"/);
+assert.match(loadingHtml, /<circle/);
+assert.match(CSS, /\.dsh3dv-spinner\{[^}]*animation:dsh3dv-spin/);
+assert.match(CSS, /\.dsh3dv-spinner\{[^}]*will-change:transform/);
 assert.doesNotMatch(loadingHtml, /WebGL|THREE/);
 
 // 2. Ready surface: the pure presentation component takes the state the

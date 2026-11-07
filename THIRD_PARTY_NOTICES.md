@@ -13,7 +13,7 @@ used by this package.
 - `EffectComposer`, `RenderPass`, `ShaderPass`
 - Three.js addon dependencies used by the loaders (`fflate`, `NURBSCurve`)
 
-`src/vendor/FBXLoaderPbr.js` is a modified copy of Three.js's `FBXLoader`.
+`src/vendor/fbx-loader-pbr.js` is a modified copy of Three.js's `FBXLoader`.
 
 The MIT License
 

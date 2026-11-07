@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { loadModelBytes } from '../src/loaders/model-loader.js';
+import { loadObjModel } from '../src/loaders/obj.js';
 import { parseFileAddress } from '../src/loaders/workspace.js';
 import { disposeObject } from '../src/model.js';
+
+globalThis.__DSH3DV_REQUIRE__ = {
+  async: async () => ({ loadObjModel }),
+};
 
 const encoder = new TextEncoder();
 

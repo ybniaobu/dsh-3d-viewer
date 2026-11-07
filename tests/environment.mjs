@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Scene, Texture } from 'three';
-import { createEnvironment } from '../src/scene/environment.js';
+import { createEnvironment, prefetchEnvironment } from '../src/scene/environment.js';
 
 /**
  * A promise plus its settle functions, so a test can hold a fetch or a PMREM
@@ -111,6 +111,7 @@ function fakeTarget() {
   const target = fakeTarget();
   let attempts = 0;
   let created = 0;
+  let failed = 0;
 
   const env = createEnvironment({
     scene,
@@ -124,6 +125,9 @@ function fakeTarget() {
       created += 1;
       return target;
     },
+    onError() {
+      failed += 1;
+    },
   });
 
   const warn = console.warn;
@@ -133,12 +137,14 @@ function fakeTarget() {
     await tick();
     assert.equal(env.activeId, null);
     assert.equal(created, 0, 'a failed fetch must not build a target');
+    assert.equal(failed, 1, 'a failed environment notifies the view');
 
     assert.equal(env.set('nature'), true, 'a failed id can be retried');
     await tick();
     assert.equal(env.activeId, 'nature');
     assert.equal(attempts, 2);
     assert.equal(created, 1);
+    assert.equal(failed, 1);
   } finally {
     console.warn = warn;
     env.dispose();
@@ -220,6 +226,83 @@ function fakeTarget() {
   assert.equal(scene.environment, null);
 }
 
+// 7. A shared cache survives a view disposal and serves the next view.
+{
+  const cache = { targets: new Map(), pending: new Map(), disposed: false };
+  const target = fakeTarget();
+  let fetches = 0;
+  let builds = 0;
+  const scene1 = new Scene();
+  const env1 = createEnvironment({
+    scene: scene1,
+    cache,
+    fetchBytes() {
+      fetches += 1;
+      return Promise.resolve(new ArrayBuffer(1));
+    },
+    createTarget() {
+      builds += 1;
+      return target;
+    },
+  });
+
+  env1.set('nature');
+  await tick();
+  assert.equal(env1.activeId, 'nature');
+  assert.equal(cache.targets.get('nature'), target);
+
+  env1.dispose();
+  assert.equal(target.disposed, 0, 'a shared target is owned by the renderer cache');
+
+  const scene2 = new Scene();
+  const env2 = createEnvironment({
+    scene: scene2,
+    cache,
+    fetchBytes() {
+      fetches += 1;
+      return Promise.resolve(new ArrayBuffer(1));
+    },
+    createTarget() {
+      builds += 1;
+      return fakeTarget();
+    },
+  });
+
+  assert.equal(env2.set('nature'), true);
+  assert.equal(env2.activeId, 'nature');
+  assert.equal(scene2.environment, target.texture);
+  assert.equal(fetches, 1, 'the cached environment does not fetch again');
+  assert.equal(builds, 1, 'the cached environment does not build again');
+
+  env2.dispose();
+  assert.equal(target.disposed, 0);
+
+  // The pool disposes the cache only when it drops the renderer.
+  cache.disposed = true;
+  for (const cached of cache.targets.values()) cached.dispose();
+  cache.targets.clear();
+  assert.equal(target.disposed, 1);
+}
+
+// 8. Prefetch is shared and can start before a renderer exists.
+{
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(new Uint8Array([1, 2, 3]));
+  };
+  try {
+    const first = prefetchEnvironment('nature');
+    const second = prefetchEnvironment('nature');
+    assert.equal(first, second);
+    assert.equal((await first).byteLength, 3);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
 console.log('Environment lifecycle verified:', {
   cases: [
     'latest selection wins',
@@ -228,5 +311,7 @@ console.log('Environment lifecycle verified:', {
     'dispose before fetch',
     'late target disposed',
     'dispose releases cached target',
+    'shared cache survives view',
+    'prefetch shared',
   ],
 });
