@@ -133,7 +133,7 @@ export function createSceneView(host, object, stats, options = {}) {
 
   const loop = createRenderLoop((delta, timestamp) => {
     animation.update(delta, timestamp);
-    if (autoRotate) controls.update();
+    if (autoRotate) controls.update(delta);
     post.render(delta);
   });
 
@@ -205,8 +205,11 @@ export function createSceneView(host, object, stats, options = {}) {
   function onControlsChange() {
     // Auto-rotate changes only the camera orientation. Updating clip planes
     // and grid uniforms for those change events can cause a one-frame tremble.
-    if (!autoRotate || interacting) syncView();
-    loop.invalidate();
+    // The continuous loop already renders those frames, so skip invalidation.
+    if (!autoRotate || interacting) {
+      syncView();
+      loop.invalidate();
+    }
   }
 
   function resize() {
