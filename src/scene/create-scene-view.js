@@ -1,4 +1,4 @@
-import { PerspectiveCamera, Scene } from 'three';
+import { PerspectiveCamera, Scene, Spherical, Vector3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { disposeObject } from '../model.js';
 import { createAnimationController } from './animation.js';
@@ -13,9 +13,8 @@ import { configureViewerRenderer } from './renderer.js';
 import { rendererPool } from './renderer-pool.js';
 
 const MAX_PIXEL_RATIO = 2;
-// A delayed frame must not rotate the camera by the whole gap; cap the
-// auto-rotate step so periodic frame-time spikes do not look like a jump.
-const MAX_AUTO_ROTATE_DELTA = 1 / 30;
+const AUTO_ROTATE_SECONDS = 15;
+const AUTO_ROTATE_RADIANS_PER_SECOND = (Math.PI * 2) / AUTO_ROTATE_SECONDS;
 
 /** Device pixel ratio, clamped so 4K/5K displays do not quadruple the cost. */
 function readPixelRatio() {
@@ -117,12 +116,18 @@ export function createSceneView(host, object, stats, options = {}) {
   controls.rotateSpeed = 0.9;
   controls.zoomSpeed = 0.9;
   controls.panSpeed = 0.8;
-  controls.autoRotateSpeed = 4;
   controls.minPolarAngle = 0.02;
   controls.maxPolarAngle = Math.PI * 0.98;
 
   let autoRotate = false;
   let interacting = false;
+  let autoStartTime = 0;
+  let autoStartTheta = 0;
+  let autoRadius = 1;
+  let autoPhi = Math.PI / 2;
+  const autoOffset = new Vector3();
+  const autoSpherical = new Spherical();
+  const autoPosition = new Vector3();
   let disposed = false;
   let onScreen = true;
   let lastWidth = 0;
@@ -134,9 +139,26 @@ export function createSceneView(host, object, stats, options = {}) {
   let resizeObserver;
   let intersectionObserver;
 
+  function beginAutoRotate() {
+    autoOffset.copy(camera.position).sub(controls.target);
+    autoSpherical.setFromVector3(autoOffset);
+    autoStartTheta = autoSpherical.theta;
+    autoPhi = autoSpherical.phi;
+    autoRadius = autoSpherical.radius;
+    autoStartTime = performance.now();
+  }
+
+  function updateAutoRotate(timestamp) {
+    const elapsed = Math.max(0, (timestamp - autoStartTime) / 1000);
+    const theta = autoStartTheta + elapsed * AUTO_ROTATE_RADIANS_PER_SECOND;
+    autoPosition.setFromSphericalCoords(autoRadius, autoPhi, theta).add(controls.target);
+    camera.position.copy(autoPosition);
+    camera.lookAt(controls.target);
+  }
+
   const loop = createRenderLoop((delta, timestamp) => {
     animation.update(delta, timestamp);
-    if (autoRotate) controls.update(Math.min(delta, MAX_AUTO_ROTATE_DELTA));
+    if (autoRotate && !interacting) updateAutoRotate(timestamp);
     post.render(delta);
   });
 
@@ -201,18 +223,16 @@ export function createSceneView(host, object, stats, options = {}) {
 
   function onControlsEnd() {
     interacting = false;
+    if (autoRotate) beginAutoRotate();
     syncView();
     loop.invalidate();
   }
 
   function onControlsChange() {
-    // Auto-rotate changes only the camera orientation. Updating clip planes
-    // and grid uniforms for those change events can cause a one-frame tremble.
-    // The continuous loop already renders those frames, so skip invalidation.
-    if (!autoRotate || interacting) {
-      syncView();
-      loop.invalidate();
-    }
+    // Auto-rotate no longer goes through OrbitControls, so every change event
+    // here comes from a user interaction (orbit, zoom, or pan).
+    syncView();
+    loop.invalidate();
   }
 
   function resize() {
@@ -244,6 +264,7 @@ export function createSceneView(host, object, stats, options = {}) {
     if (!isOrbitKey(event.key)) return;
     event.preventDefault();
     orbitByKey(camera, controls, event.key);
+    if (autoRotate) beginAutoRotate();
     loop.invalidate();
   }
 
@@ -252,7 +273,9 @@ export function createSceneView(host, object, stats, options = {}) {
   }
 
   function onVisibilityChange() {
-    loop.setActive(onScreen && !document.hidden);
+    const active = onScreen && !document.hidden;
+    loop.setActive(active);
+    if (active && autoRotate) beginAutoRotate();
   }
 
   function setAutoRotate(enabled) {
@@ -260,7 +283,7 @@ export function createSceneView(host, object, stats, options = {}) {
     if (next === autoRotate) return false;
 
     autoRotate = next;
-    controls.autoRotate = next;
+    if (next) beginAutoRotate();
     updateLoop();
     if (!next) loop.invalidate();
     return true;
@@ -318,6 +341,7 @@ export function createSceneView(host, object, stats, options = {}) {
 
   function reset() {
     frameModel(camera, controls, stats, maxDimension);
+    if (autoRotate) beginAutoRotate();
     syncView();
     loop.invalidate();
   }
