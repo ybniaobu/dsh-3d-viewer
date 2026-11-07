@@ -59,6 +59,8 @@ const textureLoadingHtml = renderToStaticMarkup(React.createElement(textureCompo
   t: (key) => key,
 }));
 assert.match(textureLoadingHtml, /data-dsh3d-texture/);
+assert.match(textureLoadingHtml, /tabindex="0"/);
+assert.match(textureLoadingHtml, /aria-label="textureKeyboardHelp"/);
 
 const loadingHtml = renderToStaticMarkup(React.createElement(component, {
   content: { kind: 'bytes', data: new Uint8Array([1, 2, 3]) },

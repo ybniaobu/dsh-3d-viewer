@@ -89,6 +89,8 @@ export async function decodeWorkspaceTexture(format, data) {
  * @returns {void}
  */
 function adoptTexture(target, source) {
+  const hdr = source.userData?.dsh3dHdr === true;
+  const placeholderColorSpace = target.colorSpace;
   target.image = source.image;
   target.mipmaps = source.mipmaps;
   target.mapping = source.mapping;
@@ -96,7 +98,9 @@ function adoptTexture(target, source) {
   target.format = source.format;
   target.internalFormat = source.internalFormat;
   target.type = source.type;
-  target.colorSpace = source.colorSpace;
+  // A late TGA load must not overwrite the sRGB color space the material
+  // assigned to the placeholder. HDR/EXR, on the other hand, are linear.
+  target.colorSpace = hdr ? source.colorSpace : placeholderColorSpace;
   target.flipY = source.flipY;
   target.unpackAlignment = source.unpackAlignment;
   target.minFilter = source.minFilter;

@@ -226,7 +226,17 @@ export function createEnvironment({
     const buffer = await fetchBytes(id);
     if (shared !== undefined ? shared.disposed : disposed) return null;
 
-    return buildFromBytes(id, buffer);
+    try {
+      return await buildFromBytes(id, buffer);
+    } finally {
+      // A shared cache can outlive this view. If the fetch finishes after the
+      // view was disposed, the finished target is still worth caching, but the
+      // generator created for that late build must not stay alive.
+      if (disposed) {
+        pmremGenerator?.dispose();
+        pmremGenerator = null;
+      }
+    }
   }
 
   /**

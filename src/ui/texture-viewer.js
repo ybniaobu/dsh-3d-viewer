@@ -6,6 +6,8 @@ import { en } from './dictionaries.js';
 
 const h = React.createElement;
 const MAX_TEXTURE_ZOOM = 16;
+const KEY_ZOOM_FACTOR = 1.25;
+const KEY_PAN_STEP = 40;
 
 function fallbackTranslate(key, params) {
   const template = en[key] ?? key;
@@ -409,6 +411,52 @@ function TextureViewer(props) {
     }));
   };
 
+  const zoomBy = (factor) => {
+    setView((current) => {
+      const next = Math.min(MAX_TEXTURE_ZOOM, Math.max(1, current.scale * factor));
+      if (next <= 1.0001) return { scale: 1, x: 0, y: 0 };
+      return { ...current, scale: next };
+    });
+  };
+
+  const handleStageKeyDown = (event) => {
+    if (!ready) return;
+    let handled = true;
+    switch (event.key) {
+      case '+':
+      case '=':
+        zoomBy(KEY_ZOOM_FACTOR);
+        break;
+      case '-':
+      case '_':
+        zoomBy(1 / KEY_ZOOM_FACTOR);
+        break;
+      case '0':
+      case 'Home':
+        resetView();
+        break;
+      case 'ArrowLeft':
+        if (!zoomed) handled = false;
+        else setView((current) => ({ ...current, x: current.x + KEY_PAN_STEP }));
+        break;
+      case 'ArrowRight':
+        if (!zoomed) handled = false;
+        else setView((current) => ({ ...current, x: current.x - KEY_PAN_STEP }));
+        break;
+      case 'ArrowUp':
+        if (!zoomed) handled = false;
+        else setView((current) => ({ ...current, y: current.y + KEY_PAN_STEP }));
+        break;
+      case 'ArrowDown':
+        if (!zoomed) handled = false;
+        else setView((current) => ({ ...current, y: current.y - KEY_PAN_STEP }));
+        break;
+      default:
+        handled = false;
+    }
+    if (handled) event.preventDefault();
+  };
+
   return h('div', {
     className: 'dsh3dv-root',
     'data-dsh3d-texture': '',
@@ -418,6 +466,9 @@ function TextureViewer(props) {
   h('div', {
     ref: stageRef,
     className: 'dsh3dv-texture-stage',
+    role: 'region',
+    tabIndex: 0,
+    'aria-label': t('textureKeyboardHelp'),
     'data-zoomed': zoomed ? 'true' : undefined,
     'data-dragging': dragging ? 'true' : undefined,
     onPointerDown: handlePointerDown,
@@ -426,6 +477,7 @@ function TextureViewer(props) {
     onPointerCancel: endDrag,
     onLostPointerCapture: endDrag,
     onDoubleClick: resetView,
+    onKeyDown: handleStageKeyDown,
   },
   h('canvas', {
     ref: canvasRef,
