@@ -1339,7 +1339,8 @@ class FBXTreeParser {
 					break;
 
 				case 1: // Orthographic
-					console.warn( 'THREE.FBXLoader: Orthographic cameras not supported yet.' );
+					// Embedded cameras are stripped by the preview; keep the graph
+					// quiet instead of warning about a camera we never render.
 					model = new Object3D();
 					break;
 
