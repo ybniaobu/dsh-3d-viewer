@@ -347,6 +347,7 @@ function TextureViewer(props) {
     'aria-label': `${format.toUpperCase()} texture`,
     style: {
       transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+      visibility: ready ? 'visible' : 'hidden',
     },
   })),
   h('div', { className: 'dsh3dv-top' },
