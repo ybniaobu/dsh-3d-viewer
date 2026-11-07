@@ -119,6 +119,7 @@ export function createSceneView(host, object, stats, options = {}) {
   controls.maxPolarAngle = Math.PI * 0.98;
 
   let autoRotate = false;
+  let interacting = false;
   let disposed = false;
   let onScreen = true;
   let lastWidth = 0;
@@ -166,10 +167,13 @@ export function createSceneView(host, object, stats, options = {}) {
     const targetZ = controls.target.z;
 
     // Auto-rotation changes the camera orientation but not its distance or
-    // target, so the grid and clip planes can stay untouched in that case.
-    if (distance === lastSyncDistance
-      && targetX === lastSyncTargetX
-      && targetZ === lastSyncTargetZ) {
+    // target. Use a small tolerance: OrbitControls' spherical integration can
+    // leave tiny floating-point differences, and updating the clip planes and
+    // grid uniforms every frame makes the grid visibly tremble.
+    const tolerance = Math.max(maxDimension * 1e-6, 1e-9);
+    if (Math.abs(distance - lastSyncDistance) <= tolerance
+      && Math.abs(targetX - lastSyncTargetX) <= tolerance
+      && Math.abs(targetZ - lastSyncTargetZ) <= tolerance) {
       return;
     }
     lastSyncDistance = distance;
@@ -188,8 +192,20 @@ export function createSceneView(host, object, stats, options = {}) {
     }
   }
 
-  function onControlsChange() {
+  function onControlsStart() {
+    interacting = true;
+  }
+
+  function onControlsEnd() {
+    interacting = false;
     syncView();
+    loop.invalidate();
+  }
+
+  function onControlsChange() {
+    // Auto-rotate changes only the camera orientation. Updating clip planes
+    // and grid uniforms for those change events can cause a one-frame tremble.
+    if (!autoRotate || interacting) syncView();
     loop.invalidate();
   }
 
@@ -331,6 +347,8 @@ export function createSceneView(host, object, stats, options = {}) {
     window.removeEventListener('resize', resize);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     controls.removeEventListener('change', onControlsChange);
+    controls.removeEventListener('start', onControlsStart);
+    controls.removeEventListener('end', onControlsEnd);
     canvas.removeEventListener('keydown', onKeyDown);
     canvas.removeEventListener('pointerdown', onPointerDown);
     animationListeners.clear();
@@ -348,6 +366,8 @@ export function createSceneView(host, object, stats, options = {}) {
   }
 
   controls.addEventListener('change', onControlsChange);
+  controls.addEventListener('start', onControlsStart);
+  controls.addEventListener('end', onControlsEnd);
   canvas.addEventListener('keydown', onKeyDown);
   canvas.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('resize', resize);
