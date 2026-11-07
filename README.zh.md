@@ -83,34 +83,82 @@
 
 ## 代码结构
 
+### 宿主与打包
+
 | 路径 | 职责 |
 | --- | --- |
-| `index.js` | 宿主端：注册只读的 `/dsh-3d-viewer/hdri` 路由，提供包内 HDRI 文件 |
-| `src/client.js` | 插件入口；按格式注册 document preview 与 Sidebar slot |
-| `dist/client.js` + `dist/client.*.js` | 预构建的 DSH 客户端入口与懒加载格式 chunk |
-| `src/formats.js` | 格式注册表：id、扩展名、标题/徽标文案和格式归一化 |
-| `src/bytes.js` | 共用的字节、文本、路径、MIME、base64 辅助函数与取消错误 |
-| `src/ui/model-viewer.js` | 渲染体容器，管理加载/错误状态、格式绑定与场景生命周期 |
-| `src/ui/viewer-surface.js` | 纯展示层：工具条、统计、动画条和状态浮层，可脱离 WebGL 渲染 |
-| `src/ui/animation-bar.js` | 动画工具条；播放状态与 30Hz 进度更新只重渲染这个小组件 |
-| `src/ui/chrome.js`、`icons.js`、`primitives.js` | 工具条、数据驱动的材质/环境弹层、统计面板、图标与格式化 |
-| `src/ui/styles.js`、`dictionaries.js`、`options.js` | 样式、中英文案和 UI 选项 |
-| `src/scene/create-scene-view.js` | 场景编排：renderer、camera、controls、生命周期 |
-| `src/scene/environment.js` | 从宿主路由获取 HDRI、解码、构建 PMREM 并按 id 缓存 |
-| `src/scene/materials.js` | Phong/Lambert → PBR 转换、材质预设、线框材质 |
-| `src/scene/ground.js` | 无限网格 shader 与阴影接收面；网格像素图全页只生成一次 |
-| `src/scene/animation.js` | AnimationMixer、片段时间轴和进度通知 |
-| `src/scene/camera.js`、`lighting.js`、`render-loop.js`、`postprocessing.js`、`blue-noise.js` | 取景与键盘旋转、灯光、帧调度、MSAA/ACES 后处理与蓝色噪声抖动 |
-| `src/loaders/workspace.js` | `resourceAddress` 解析、workspaceFiles 读取、绝对路径回退、贴图 Blob/白占位与资源回收 |
-| `src/loaders/model-loader.js` | 懒加载格式 chunk 的分派，以及 FBX / OBJ / glTF / GLB / STL 异步加载 |
-| `src/loaders/fbx.js`、`obj.js`、`stl.js` | 各格式的解析、sidecar 解析与加载 |
-| `src/loaders/gltf.js` | glTF/GLB 外部 buffer/贴图预取（按资源去重）、动画挂载和资源清理 |
-| `src/loaders/chunks/*.js` | 与 `dist/client.js` 并列产出的懒加载格式 chunk 入口 |
-| `src/model.js` | 模型统计、内嵌节点剥离和资源释放 |
-| `src/vendor/fbx-loader-pbr.js` | vendored Three.js FBXLoader，额外读取金属度/粗糙度自定义属性 |
-| `tests/run.mjs` | 测试入口：每个 `tests/*.mjs` 都在独立进程中运行 |
-| `icon.svg` | 插件图标；DSH 元信息要求它位于包根目录 |
-| `assets/hdri/` | 由宿主路由提供的 HDRI 文件（Poly Haven CC0） |
+| `index.js` | 宿主端：注册只读的 `/dsh-3d-viewer/hdri` 路由 |
+| `cordis.patch.yml` | 插入插件行的 bundle patch |
+| `package.json` | DSH manifest、exports、engines 和打包文件列表 |
+| `dist/client.js` | 预构建客户端入口，经 `exports["./client"]` 提供 |
+| `dist/client.*.js` | FBX/OBJ/glTF/STL 懒加载 chunk，与入口同目录 |
+| `icon.svg` | DSH 元信息要求的包根图标 |
+| `locale/*.json` | 中英文 UI 字典 |
+| `assets/hdri/` | 由宿主路由提供的 Poly Haven CC0 HDRI |
+
+### 客户端入口与共享数据
+
+| 路径 | 职责 |
+| --- | --- |
+| `src/client.js` | 按格式注册 document preview 与 Sidebar slot |
+| `src/formats.js` | 格式 id、扩展名、标题与归一化 |
+| `src/bytes.js` | 字节、文本、路径、MIME、base64 辅助与取消错误 |
+| `src/model.js` | 模型统计、内嵌节点剥离与资源释放 |
+
+### UI
+
+| 路径 | 职责 |
+| --- | --- |
+| `src/ui/model-viewer.js` | 渲染体容器：加载生命周期、设置与状态 |
+| `src/ui/viewer-surface.js` | 纯展示：工具条、统计、动画条与状态浮层 |
+| `src/ui/animation-bar.js` | 动画播放控制与进度更新 |
+| `src/ui/chrome.js` | 工具条、材质/环境弹层与统计面板 |
+| `src/ui/primitives.js` | 共用小组件 |
+| `src/ui/icons.js` | 内联图标 |
+| `src/ui/styles.js` | 作用域样式 |
+| `src/ui/dictionaries.js` | 中英文案 |
+| `src/ui/options.js` | 材质/环境选项元数据 |
+
+### 场景
+
+| 路径 | 职责 |
+| --- | --- |
+| `src/scene/create-scene-view.js` | 场景编排：renderer、camera、controls、渲染循环 |
+| `src/scene/renderer.js` | Renderer 创建与固定的 Three 设置 |
+| `src/scene/renderer-pool.js` | 跨视图复用 renderer 与 PMREM |
+| `src/scene/environment.js` | HDRI 获取、PMREM 构建与按 id 缓存 |
+| `src/scene/materials.js` | Phong/Lambert → PBR、材质预设与线框 |
+| `src/scene/ground.js` | 无限网格 shader 与阴影接收面 |
+| `src/scene/animation.js` | AnimationMixer、片段时间轴与进度 |
+| `src/scene/camera.js` | 取景、键盘旋转与裁剪面 |
+| `src/scene/lighting.js` | 主/补光与阴影 |
+| `src/scene/render-loop.js` | 合并帧调度 |
+| `src/scene/postprocessing.js` | MSAA/ACES 与抖动 |
+| `src/scene/blue-noise.js` | 蓝噪声贴图 |
+| `src/scene/viewer-error.js` | 类型化预览错误 |
+
+### 加载器与 chunks
+
+| 路径 | 职责 |
+| --- | --- |
+| `src/loaders/model-loader.js` | 懒加载 chunk 分派与格式加载 |
+| `src/loaders/fbx.js` | FBX 解析与贴图 sidecar |
+| `src/loaders/obj.js` | OBJ 解析与 MTL/贴图解析 |
+| `src/loaders/stl.js` | STL 解析 |
+| `src/loaders/gltf.js` | glTF/GLB buffer、贴图、动画与清理 |
+| `src/loaders/workspace.js` | 资源地址、工作区读取与贴图回退 |
+| `src/loaders/chunk-require.js` | DSH 包 chunk 的 `require.async` 桥 |
+| `src/loaders/three-bridge.js` | 与懒加载 chunk 共享的 Three 导出 |
+| `src/loaders/chunks/*.js` | 每个懒加载格式 chunk 一个入口 |
+| `src/vendor/fbx-loader-pbr.js` | vendored Three FBXLoader，额外支持 PBR 自定义属性 |
+
+### 构建与测试
+
+| 路径 | 职责 |
+| --- | --- |
+| `build.mjs` | 构建 `dist/client.js` 与格式 chunk |
+| `tests/run.mjs` | 每个 `tests/*.mjs` 在独立进程中运行 |
+| `tests/*.mjs` | loader、renderer pool、HDRI 路由、SSR、manifest 与 chunks |
 
 命名规范：源码文件用 `kebab-case`；React 组件和类用 `PascalCase`；函数和变量用 `camelCase`；模块常量用 `UPPER_SNAKE_CASE`。vendored loader 的内部实现保留上游命名。
 
