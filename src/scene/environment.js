@@ -162,11 +162,17 @@ export function createEquirectangularTexture(buffer, loader = new HDRLoader()) {
  *   rotations?: Record<string, number>,
  *   onReady?: () => void,
  *   onError?: (error: unknown) => void,
+ *   cache?: {
+ *     targets: Map<string, import('three').WebGLRenderTarget>,
+ *     pending: Map<string, Promise<import('three').WebGLRenderTarget | null>>,
+ *     disposed: boolean,
+ *   },
  *   fetchBytes?: (id: string) => Promise<ArrayBuffer>,
  *   createTarget?: (id: string, buffer: ArrayBuffer) => import('three').WebGLRenderTarget | null | Promise<import('three').WebGLRenderTarget | null>,
  * }} options Renderer, target scene, per-environment IBL strengths and yaw,
- * a notification for when a requested environment is applied or fails, and
- * optional byte/target providers used by the lifecycle tests.
+ * a notification for when a requested environment is applied or fails, an
+ * optional cache shared with the renderer's other views, and optional
+ * byte/target providers used by the lifecycle tests.
  * @returns {{
  *   set: (id: unknown) => boolean,
  *   dispose: () => void,
@@ -180,11 +186,14 @@ export function createEnvironment({
   rotations = ENVIRONMENT_ROTATIONS,
   onReady,
   onError,
+  cache,
   fetchBytes = prefetchEnvironment,
   createTarget,
 }) {
-  const targets = new Map();
-  const pending = new Map();
+  const shared = cache;
+  const targets = shared?.targets ?? new Map();
+  const pending = shared?.pending ?? new Map();
+  const ownsTargets = shared === undefined;
   const loader = new HDRLoader();
   let pmremGenerator = null;
   let activeId = null;
@@ -215,7 +224,7 @@ export function createEnvironment({
    */
   async function buildTarget(id) {
     const buffer = await fetchBytes(id);
-    if (disposed) return null;
+    if (shared !== undefined ? shared.disposed : disposed) return null;
 
     return buildFromBytes(id, buffer);
   }
@@ -228,6 +237,8 @@ export function createEnvironment({
    * @returns {Promise<import('three').WebGLRenderTarget | null>} PMREM target.
    */
   function requestTarget(id) {
+    if (shared !== undefined && shared.disposed) return Promise.resolve(null);
+
     const cached = targets.get(id);
     if (cached !== undefined) return Promise.resolve(cached);
 
@@ -237,6 +248,21 @@ export function createEnvironment({
     const task = buildTarget(id).then((target) => {
       pending.delete(id);
       if (target === null) return null;
+
+      if (shared !== undefined) {
+        if (shared.disposed) {
+          target.dispose();
+          return null;
+        }
+        const existing = targets.get(id);
+        if (existing !== undefined) {
+          target.dispose();
+          return existing;
+        }
+        targets.set(id, target);
+        return target;
+      }
+
       if (disposed) {
         target.dispose();
         return null;
@@ -245,14 +271,8 @@ export function createEnvironment({
       return target;
     }, (error) => {
       pending.delete(id);
+      if (shared !== undefined && shared.disposed) return null;
       console.warn(`[dsh-3d-viewer] Could not build the "${id}" environment.`, error);
-      if (!disposed && requestedId === id) {
-        try {
-          onError?.(error);
-        } catch (callbackError) {
-          console.error('[dsh-3d-viewer] Environment error listener failed.', callbackError);
-        }
-      }
       return null;
     });
 
@@ -275,6 +295,7 @@ export function createEnvironment({
 
   function set(id) {
     if (disposed) return false;
+    if (shared !== undefined && shared.disposed) return false;
 
     const next = normalizeEnvironmentId(id);
     if (next === requestedId) return false;
@@ -292,7 +313,15 @@ export function createEnvironment({
 
       if (target === null) {
         // Allow a later retry instead of treating the failed id as current.
-        if (requestedId === next) requestedId = activeId;
+        const current = requestedId === next;
+        if (current) requestedId = activeId;
+        if (current) {
+          try {
+            onError?.(new Error(`Could not apply the "${next}" environment.`));
+          } catch (callbackError) {
+            console.error('[dsh-3d-viewer] Environment error listener failed.', callbackError);
+          }
+        }
         return;
       }
       if (requestedId !== next) return;
@@ -310,9 +339,11 @@ export function createEnvironment({
     requestedId = null;
     scene.environment = null;
 
-    for (const target of new Set(targets.values())) target.dispose();
-    targets.clear();
-    pending.clear();
+    if (ownsTargets) {
+      for (const target of new Set(targets.values())) target.dispose();
+      targets.clear();
+      pending.clear();
+    }
     pmremGenerator?.dispose();
     pmremGenerator = null;
   }

@@ -226,7 +226,65 @@ function fakeTarget() {
   assert.equal(scene.environment, null);
 }
 
-// 7. Prefetch is shared and can start before a renderer exists.
+// 7. A shared cache survives a view disposal and serves the next view.
+{
+  const cache = { targets: new Map(), pending: new Map(), disposed: false };
+  const target = fakeTarget();
+  let fetches = 0;
+  let builds = 0;
+  const scene1 = new Scene();
+  const env1 = createEnvironment({
+    scene: scene1,
+    cache,
+    fetchBytes() {
+      fetches += 1;
+      return Promise.resolve(new ArrayBuffer(1));
+    },
+    createTarget() {
+      builds += 1;
+      return target;
+    },
+  });
+
+  env1.set('nature');
+  await tick();
+  assert.equal(env1.activeId, 'nature');
+  assert.equal(cache.targets.get('nature'), target);
+
+  env1.dispose();
+  assert.equal(target.disposed, 0, 'a shared target is owned by the renderer cache');
+
+  const scene2 = new Scene();
+  const env2 = createEnvironment({
+    scene: scene2,
+    cache,
+    fetchBytes() {
+      fetches += 1;
+      return Promise.resolve(new ArrayBuffer(1));
+    },
+    createTarget() {
+      builds += 1;
+      return fakeTarget();
+    },
+  });
+
+  assert.equal(env2.set('nature'), true);
+  assert.equal(env2.activeId, 'nature');
+  assert.equal(scene2.environment, target.texture);
+  assert.equal(fetches, 1, 'the cached environment does not fetch again');
+  assert.equal(builds, 1, 'the cached environment does not build again');
+
+  env2.dispose();
+  assert.equal(target.disposed, 0);
+
+  // The pool disposes the cache only when it drops the renderer.
+  cache.disposed = true;
+  for (const cached of cache.targets.values()) cached.dispose();
+  cache.targets.clear();
+  assert.equal(target.disposed, 1);
+}
+
+// 8. Prefetch is shared and can start before a renderer exists.
 {
   const originalFetch = globalThis.fetch;
   let calls = 0;
@@ -253,6 +311,7 @@ console.log('Environment lifecycle verified:', {
     'dispose before fetch',
     'late target disposed',
     'dispose releases cached target',
+    'shared cache survives view',
     'prefetch shared',
   ],
 });

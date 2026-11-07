@@ -1,11 +1,4 @@
-import {
-  ACESFilmicToneMapping,
-  PCFShadowMap,
-  PerspectiveCamera,
-  Scene,
-  SRGBColorSpace,
-  WebGLRenderer,
-} from 'three';
+import { PerspectiveCamera, Scene } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { disposeObject } from '../model.js';
 import { createAnimationController } from './animation.js';
@@ -16,7 +9,8 @@ import { createLighting } from './lighting.js';
 import { createMaterialController } from './materials.js';
 import { createPostProcessing } from './postprocessing.js';
 import { createRenderLoop } from './render-loop.js';
-import { ViewerError } from './viewer-error.js';
+import { configureViewerRenderer } from './renderer.js';
+import { rendererPool } from './renderer-pool.js';
 
 const MAX_PIXEL_RATIO = 2;
 
@@ -56,16 +50,9 @@ function readPixelRatio() {
  * }} View controls.
  */
 export function createSceneView(host, object, stats, options = {}) {
-  let renderer;
-  try {
-    renderer = new WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
-  } catch (error) {
-    throw new ViewerError('webgl', 'A WebGL context could not be created.', error);
-  }
+  const poolEntry = rendererPool.acquire();
+  const renderer = poolEntry.renderer;
+  configureViewerRenderer(renderer);
 
   const canvas = renderer.domElement;
   canvas.className = 'dsh3dv-canvas';
@@ -82,12 +69,6 @@ export function createSceneView(host, object, stats, options = {}) {
 
   renderer.setPixelRatio(initialPixelRatio);
   renderer.setSize(initialWidth, initialHeight, false);
-  renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  renderer.setClearColor(0x000000, 0);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFShadowMap;
 
   const scene = new Scene();
   const camera = new PerspectiveCamera(38, initialWidth / initialHeight, 0.1, 1000);
@@ -165,6 +146,7 @@ export function createSceneView(host, object, stats, options = {}) {
   const environment = createEnvironment({
     renderer,
     scene,
+    cache: poolEntry.environment,
     onReady: () => {
       resolveEnvironmentReady();
       renderer.setRenderTarget(null);
@@ -351,9 +333,7 @@ export function createSceneView(host, object, stats, options = {}) {
     post.dispose();
     disposeObject(scene);
     scene.clear();
-    renderer.dispose();
-    renderer.forceContextLoss();
-    canvas.remove();
+    rendererPool.release(poolEntry);
   }
 
   controls.addEventListener('change', onControlsChange);
