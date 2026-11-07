@@ -404,8 +404,13 @@ function TextureViewer(props) {
     h('span', { className: 'dsh3dv-badge' }, t(`${format}Badge`)),
     h('div', { className: 'dsh3dv-texture-actions' },
       ready
-        ? h('span', { className: 'dsh3dv-badge' },
-          `${state.width} × ${state.height} · ${state.bits}-bit${zoomed ? ` · ${zoomPercent}%` : ''}`)
+        ? h('button', {
+          type: 'button',
+          className: 'dsh3dv-texture-fit',
+          onClick: resetView,
+          title: t('textureFit'),
+          'aria-label': t('textureFit'),
+        }, t('textureFit'))
         : null,
       ready
         ? h('button', {
@@ -417,14 +422,9 @@ function TextureViewer(props) {
           'aria-label': t('textureFlipY'),
         }, t('textureFlipY'))
         : null,
-      ready && zoomed
-        ? h('button', {
-          type: 'button',
-          className: 'dsh3dv-texture-fit',
-          onClick: resetView,
-          title: t('textureFit'),
-          'aria-label': t('textureFit'),
-        }, t('textureFit'))
+      ready
+        ? h('span', { className: 'dsh3dv-badge' },
+          `${state.width} × ${state.height} · ${state.bits}-bit · ${zoomPercent}%`)
         : null)),
   h(StatusOverlay, {
     status: state.status,
