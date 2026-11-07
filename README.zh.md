@@ -13,7 +13,7 @@
 
 ## 安装与启用
 
-插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `client.js` 已打包 Three.js 与各类 Loader；四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
+插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `client.js` 包含查看器与 Three.js 核心；各格式 Loader 是包内懒加载 chunk，只在首次打开该格式时加载。四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
 
 ### 从 npm 安装（推荐）
 

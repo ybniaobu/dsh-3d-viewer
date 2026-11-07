@@ -30,10 +30,11 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Check committed client.js matches source
+      - name: Check committed client bundles match source
         run: |
           npm run build
-          if ! git diff --exit-code -- client.js; then
-            echo "::error file=client.js::client.js is stale; run 'npm run build' and commit the result."
+          if [ -n "$(git status --porcelain -- client.js client.*.js)" ]; then
+            git status --short -- client.js client.*.js
+            echo "::error::client.js or a format chunk is stale; run 'npm run build' and commit the result."
             exit 1
           fi

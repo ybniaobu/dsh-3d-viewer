@@ -13,7 +13,7 @@ Preview FBX, OBJ, glTF, GLB, and STL models from the current session's workspace
 
 ## Installation and enabling
 
-Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` bundles Three.js and the loaders; the four HDRI files ship in the package and are served by a small read-only host route on the local DSH server, so no network access is needed at runtime. React comes from DSH.
+Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` contains the viewer and Three.js core; each format loader is a package-local lazy chunk fetched only when that format is first opened. The four HDRI files ship in the package and are served by a small read-only host route on the local DSH server, so no network access is needed at runtime. React comes from DSH.
 
 ### Install from npm (recommended)
 

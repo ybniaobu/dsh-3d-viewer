@@ -1,3 +1,4 @@
+import * as THREE_BRIDGE from './loaders/three-bridge.js';
 import { FORMAT_ENTRIES } from './formats.js';
 import { parseFileAddress, readWorkspaceFile } from './loaders/workspace.js';
 import { VIEWER_COMPONENTS } from './ui/ModelViewer.js';
@@ -5,6 +6,10 @@ import { en, zh } from './ui/dictionaries.js';
 
 const NS = 'dsh3dViewer';
 const BODY_SLOT = 'sidebar.right.tab.document';
+
+// Format chunks are self-contained CJS scripts; they receive the chunk-sized
+// Three bridge through the wrapper installed by build.mjs.
+globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
 // workspace-files caps a single byte window at 2 MiB; files above the 32 MiB
 // full-file cap are assembled from these windows.
 const READ_CHUNK_BYTES = 2 * 1024 * 1024;

@@ -3,7 +3,12 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { loadModelBytes } from '../src/loaders/model-loader.js';
+import { loadStlModel } from '../src/loaders/stl.js';
 import { collectModelStats, disposeObject } from '../src/model.js';
+
+globalThis.__DSH3DV_REQUIRE__ = {
+  async: async () => ({ loadStlModel }),
+};
 
 const cases = [
   ['TestCube.stl', 12],

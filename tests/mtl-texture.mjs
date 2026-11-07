@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { loadModelBytes } from '../src/loaders/model-loader.js';
+import { loadObjModel } from '../src/loaders/obj.js';
 import { disposeObject } from '../src/model.js';
+
+globalThis.__DSH3DV_REQUIRE__ = {
+  async: async () => ({ loadObjModel }),
+};
 
 // ImageLoader uses an HTMLImageElement. A minimal fake is enough to exercise
 // the workspace texture path without a browser; bytes are never decoded.
