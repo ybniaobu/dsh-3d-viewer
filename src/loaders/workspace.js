@@ -61,7 +61,7 @@ function loadTextureChunk(format) {
  * @param {Uint8Array | ArrayBuffer} data Complete bytes.
  * @returns {Promise<Texture>} Decoded texture.
  */
-async function decodeTexture(format, data) {
+export async function decodeWorkspaceTexture(format, data) {
   const module = await loadTextureChunk(format);
   const decoders = { tga: 'decodeTga', exr: 'decodeExr', hdr: 'decodeHdr' };
   const decode = module[decoders[format]];
@@ -253,7 +253,7 @@ class WorkspaceTextureLoader extends Loader {
 
           const format = textureFormatOf(path);
           if (format !== null) {
-            const decoded = await decodeTexture(format, result.value.data);
+            const decoded = await decodeWorkspaceTexture(format, result.value.data);
             if (this.signal?.aborted === true || this.disposed?.() === true) {
               decoded.dispose();
               throw abortError('Texture loading was cancelled.');

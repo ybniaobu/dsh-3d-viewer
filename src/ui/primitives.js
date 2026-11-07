@@ -66,6 +66,7 @@ export function errorText(failure, t) {
   if (failure === null || failure === undefined) return t('renderFailed');
   if (failure.code === 'webgl') return t('webglUnavailable');
   if (failure.code === 'parse') return t('parseFailed');
+  if (failure.code === 'texture') return t('textureFailed');
   return t('renderFailed');
 }
 

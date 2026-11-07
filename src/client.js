@@ -1,7 +1,9 @@
 import * as THREE_BRIDGE from './loaders/three-bridge.js';
 import { FORMAT_ENTRIES } from './formats.js';
+import { TEXTURE_FORMAT_ENTRIES } from './texture-formats.js';
 import { parseFileAddress, readWorkspaceFile } from './loaders/workspace.js';
 import { VIEWER_COMPONENTS } from './ui/model-viewer.js';
+import { TEXTURE_VIEWER_COMPONENTS } from './ui/texture-viewer.js';
 import { en, zh } from './ui/dictionaries.js';
 
 const NS = 'dsh3dViewer';
@@ -342,10 +344,10 @@ async function readDocumentBytes(ctx, address, signal) {
  *
  * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
  * @param {(key: string) => string} t Namespace-bound translator.
- * @param {import('./formats.js').FormatDefinition} entry Format definition.
+ * @param {import('./formats.js').FormatDefinition | import('./texture-formats.js').TextureFormatDefinition} entry Format definition.
+ * @param {(props: object) => unknown} component Slot body component.
  */
-function registerPreview(ctx, t, entry) {
-  const component = VIEWER_COMPONENTS[entry.format];
+function registerPreview(ctx, t, entry, component) {
 
   ctx.effect(() => ctx.documentPreviews.register({
     id: entry.id,
@@ -370,10 +372,10 @@ function registerPreview(ctx, t, entry) {
 }
 
 /**
- * Register the FBX, OBJ, glTF/GLB, and STL document renderers and their view
+ * Register the model and standalone texture document renderers and their view
  * bodies in the right Sidebar.
  *
- * Formats come from the shared registry, so registration, badges, and viewer
+ * Formats come from the shared registries, so registration, badges, and viewer
  * components cannot drift apart.
  *
  * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
@@ -383,5 +385,10 @@ export function apply(ctx) {
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-3d-viewer: dictionaries');
 
-  for (const entry of FORMAT_ENTRIES) registerPreview(ctx, t, entry);
+  for (const entry of FORMAT_ENTRIES) {
+    registerPreview(ctx, t, entry, VIEWER_COMPONENTS[entry.format]);
+  }
+  for (const entry of TEXTURE_FORMAT_ENTRIES) {
+    registerPreview(ctx, t, entry, TEXTURE_VIEWER_COMPONENTS[entry.format]);
+  }
 }

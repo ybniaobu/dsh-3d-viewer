@@ -113,26 +113,35 @@ const moduleExports = entry.factory((name) => {
 moduleExports.apply(ctx);
 
 assert.deepEqual(moduleExports.inject, ['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles']);
-assert.equal(registration.definitions.length, 4);
-assert.equal(registration.slots.length, 4);
+assert.equal(registration.definitions.length, 7);
+assert.equal(registration.slots.length, 7);
 assert.deepEqual(registration.injectKeys, [
   'sidebar.right.tab.document',
   'sidebar.right.tab.document',
   'sidebar.right.tab.document',
   'sidebar.right.tab.document',
+  'sidebar.right.tab.document',
+  'sidebar.right.tab.document',
+  'sidebar.right.tab.document',
 ]);
-assert.equal(registration.effects.length, 9);
+assert.equal(registration.effects.length, 15);
 
 const fbx = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/fbx');
 const obj = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/obj');
 const gltf = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/gltf');
 const stl = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/stl');
+const tga = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/tga');
+const exr = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/exr');
+const hdr = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/hdr');
 assert.ok(fbx, 'FBX preview should be registered');
 assert.ok(obj, 'OBJ preview should be registered');
 assert.ok(gltf, 'glTF preview should be registered');
 assert.ok(stl, 'STL preview should be registered');
+assert.ok(tga, 'TGA preview should be registered');
+assert.ok(exr, 'EXR preview should be registered');
+assert.ok(hdr, 'HDR preview should be registered');
 
-for (const definition of [fbx, obj, gltf, stl]) {
+for (const definition of [fbx, obj, gltf, stl, tga, exr, hdr]) {
   assert.equal(definition.priority, 'extension');
   assert.equal(definition.loading, 'renderer');
   assert.equal(definition.wrap, false);
@@ -150,8 +159,17 @@ assert.equal(gltf.title(), 'gltfRendererTitle');
 assert.deepEqual(stl.extensions, ['stl']);
 assert.deepEqual(stl.binaryExtensions, ['stl']);
 assert.equal(stl.title(), 'stlRendererTitle');
+assert.deepEqual(tga.extensions, ['tga']);
+assert.deepEqual(tga.binaryExtensions, ['tga']);
+assert.equal(tga.title(), 'tgaRendererTitle');
+assert.deepEqual(exr.extensions, ['exr']);
+assert.deepEqual(exr.binaryExtensions, ['exr']);
+assert.equal(exr.title(), 'exrRendererTitle');
+assert.deepEqual(hdr.extensions, ['hdr']);
+assert.deepEqual(hdr.binaryExtensions, ['hdr']);
+assert.equal(hdr.title(), 'hdrRendererTitle');
 
-for (const definition of [fbx, obj, gltf, stl]) {
+for (const definition of [fbx, obj, gltf, stl, tga, exr, hdr]) {
   const slot = registration.slots.find((candidate) => candidate.options.key === definition.id);
   assert.ok(slot, `missing body for ${definition.id}`);
   assert.equal(slot.options.name, 'sidebar.right.tab.document');

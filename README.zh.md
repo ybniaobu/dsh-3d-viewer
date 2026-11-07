@@ -7,7 +7,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型。无需上传或联网：打开模型即可旋转、缩放、切换材质与环境，并播放内置动画。
+在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA/EXR/HDR 纹理。无需上传或联网：打开模型即可旋转、缩放、切换材质与环境，并播放内置动画。
 
 ![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
@@ -22,7 +22,7 @@
 3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.1.1`。
 4. **Registry** 选择 npm 官方源（国内也可用 npmmirror）。
 5. 点击 **Install**，在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
-6. 回到会话打开模型。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
+6. 回到会话打开模型或纹理。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
 
 > **更新**：先在 **Plugins** 中移除旧版本，再安装更高版本的新包。
 
@@ -35,7 +35,7 @@
 3. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
 4. 填入插件目录的绝对路径（例如 `F:\plugins\dsh-3d-viewer`），点击 **Install**。
 5. 在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
-6. 回到会话打开模型。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
+6. 回到会话打开模型或纹理。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
 
 > 本地安装以链接方式引用目录，安装后不要移动、重命名或删除它，否则 DSH 下次启动可能找不到插件。
 >
@@ -47,12 +47,12 @@
 - 支持 WebGL 2，否则预览会报错。
 - 模型文件位于会话工作区内，可通过右侧边栏的 **Files** 打开。
 
-## 打开一个模型
+## 打开模型或纹理
 
 1. 打开任意会话，点击对话右上角的右侧边栏按钮。
 2. 在右侧边栏打开 **Files**（也可按 `Mod+P`）。
-3. 点击任意 `.fbx`、`.obj`、`.gltf`、`.glb` 或 `.stl` 文件。
-4. 模型在预览标签中打开。大文件和第一次切换环境可能需要几秒钟。
+3. 点击任意 `.fbx`、`.obj`、`.gltf`、`.glb`、`.stl`、`.tga`、`.exr` 或 `.hdr` 文件。
+4. 模型或纹理在预览标签中打开。大文件和第一次切换环境可能需要几秒钟。
 
 ## 支持的文件格式
 
@@ -62,6 +62,7 @@
 | **OBJ** | 多边形、`o`/`g` 分组、法线、UV、顶点色、线与点图元、`mtllib`/MTL、常用贴图 |
 | **glTF / GLB** | 动画、蒙皮、内嵌资源、外部 `.bin` 与贴图 |
 | **STL** | ASCII 与二进制 STL；中性双面 PBR 材质；保留二进制顶点色 |
+| **TGA / EXR / HDR** | 独立纹理预览；TGA 显示 8-bit RGBA，EXR/HDR 从线性 HDR 数据色调映射 |
 
 外部资源（FBX/glTF 贴图、glTF `.bin`、OBJ MTL 与贴图）均从会话工作区读取。
 
@@ -102,7 +103,8 @@
 | 路径 | 职责 |
 | --- | --- |
 | `src/client.js` | 按格式注册 document preview 与 Sidebar slot |
-| `src/formats.js` | 格式 id、扩展名、标题与归一化 |
+| `src/formats.js` | 模型格式 id、扩展名、标题与归一化 |
+| `src/texture-formats.js` | 独立纹理格式的 id、扩展名与标题 |
 | `src/bytes.js` | 字节、文本、路径、MIME、base64 辅助与取消错误 |
 | `src/model.js` | 模型统计、内嵌节点剥离与资源释放 |
 
@@ -112,6 +114,7 @@
 | --- | --- |
 | `src/ui/model-viewer.js` | 渲染体容器：加载生命周期、设置与状态 |
 | `src/ui/viewer-surface.js` | 纯展示：工具条、统计、动画条与状态浮层 |
+| `src/ui/texture-viewer.js` | TGA/EXR/HDR 独立纹理预览与色调映射 |
 | `src/ui/animation-bar.js` | 动画播放控制与进度更新 |
 | `src/ui/chrome.js` | 工具条、材质/环境弹层与统计面板 |
 | `src/ui/primitives.js` | 共用小组件 |

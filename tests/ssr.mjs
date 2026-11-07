@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ViewerSurface } from '../src/ui/viewer-surface.js';
 import { CSS } from '../src/ui/styles.js';
 
-// 1. Bundle integration: the plugin registers four bodies, and a newly opened
+// 1. Bundle integration: the plugin registers seven bodies, and a newly opened
 //    document renders its loading state without touching WebGL.
 let entry;
 const window = {
@@ -47,11 +47,18 @@ const moduleExports = entry.factory((name) => {
   throw new Error(`unexpected runtime import: ${name}`);
 });
 moduleExports.apply(ctx);
-assert.equal(components.length, 4);
-assert.equal(definitions.length, 4);
+assert.equal(components.length, 7);
+assert.equal(definitions.length, 7);
 assert.ok(definitions.every((definition) => definition.loading === 'renderer'));
 const component = components.find(({ key }) => key === 'dsh-3d-viewer/obj')?.body;
 assert.equal(typeof component, 'function');
+const textureComponent = components.find(({ key }) => key === 'dsh-3d-viewer/tga')?.body;
+assert.equal(typeof textureComponent, 'function');
+const textureLoadingHtml = renderToStaticMarkup(React.createElement(textureComponent, {
+  content: { kind: 'bytes', data: new Uint8Array([1, 2, 3]) },
+  t: (key) => key,
+}));
+assert.match(textureLoadingHtml, /data-dsh3d-texture/);
 
 const loadingHtml = renderToStaticMarkup(React.createElement(component, {
   content: { kind: 'bytes', data: new Uint8Array([1, 2, 3]) },

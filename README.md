@@ -7,7 +7,7 @@ English | [中文](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.zh
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-Preview FBX, OBJ, glTF, GLB, and STL models from the current session's workspace in DSH's right sidebar. No uploads or network: open a model, orbit, zoom, switch materials and environments, and play embedded animations.
+Preview FBX, OBJ, glTF, GLB, and STL models plus TGA/EXR/HDR textures from the current session's workspace in DSH's right sidebar. No uploads or network: open a model, orbit, zoom, switch materials and environments, and play embedded animations.
 
 ![3D Viewer preview](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
@@ -22,7 +22,7 @@ Distributed as the npm package `dsh-3d-viewer`. The prebuilt `dist/client.js` co
 3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.1.1` to pin a version).
 4. Set **Registry** to the official npm registry (npmmirror also works in mainland China).
 5. Click **Install**, then confirm **3D Viewer** is **On** under **Installed plugins**.
-6. Open a model from any session. If no preview appears, refresh the page; if it still does not, restart DSH.
+6. Open a model or texture from any session. If no preview appears, refresh the page; if it still does not, restart DSH.
 
 > **Updating**: remove the old version under **Plugins**, then install the new one with a higher version.
 
@@ -35,7 +35,7 @@ Use this for offline or intranet distribution.
 3. Click **Add plugin** → **Install a third-party plugin**.
 4. Enter the directory's absolute path (for example `F:\plugins\dsh-3d-viewer`) and click **Install**.
 5. Confirm **3D Viewer** is **On** under **Installed plugins**.
-6. Open a model from any session. If no preview appears, refresh the page; if it still does not, restart DSH.
+6. Open a model or texture from any session. If no preview appears, refresh the page; if it still does not, restart DSH.
 
 > Local installs link to the directory rather than copying it. Do not move, rename, or delete it, or DSH may not find the plugin on the next start.
 >
@@ -47,12 +47,12 @@ Use this for offline or intranet distribution.
 - WebGL 2 support; otherwise the preview reports an error.
 - Model files in the session workspace, reachable through **Files** in the right sidebar.
 
-## Open a model
+## Open a model or texture
 
 1. Open any session and click the right-sidebar button at the top-right of the conversation.
 2. Open **Files** in the sidebar (or press `Mod+P`).
-3. Click any `.fbx`, `.obj`, `.gltf`, `.glb`, or `.stl` file.
-4. The model opens in a preview tab. Large files and the first environment switch may take a few seconds.
+3. Click any `.fbx`, `.obj`, `.gltf`, `.glb`, `.stl`, `.tga`, `.exr`, or `.hdr` file.
+4. The model or texture opens in a preview tab. Large files and the first environment switch may take a few seconds.
 
 ## Supported formats
 
@@ -62,6 +62,7 @@ Use this for offline or intranet distribution.
 | **OBJ** | Polygons, `o`/`g` groups, normals, UVs, vertex colors, line/point primitives, `mtllib`/MTL, and common textures |
 | **glTF / GLB** | Animations, skinning, embedded resources, and external `.bin` files and textures |
 | **STL** | ASCII and binary STL; neutral double-sided PBR material; binary vertex colors preserved |
+| **TGA / EXR / HDR** | Standalone texture preview; TGA shows 8-bit RGBA, EXR/HDR are tone-mapped from linear HDR data |
 
 External resources (FBX/glTF textures, glTF `.bin`, OBJ MTL and textures) are read from the session workspace.
 
@@ -102,7 +103,8 @@ Notes:
 | Path | Responsibility |
 | --- | --- |
 | `src/client.js` | Registers document previews and Sidebar slots for each format |
-| `src/formats.js` | Format ids, extensions, titles, and normalization |
+| `src/formats.js` | Model format ids, extensions, titles, and normalization |
+| `src/texture-formats.js` | Standalone texture format ids, extensions, and titles |
 | `src/bytes.js` | Byte, text, path, MIME, and base64 helpers plus cancellation |
 | `src/model.js` | Model stats, embedded-node stripping, and resource disposal |
 
@@ -112,6 +114,7 @@ Notes:
 | --- | --- |
 | `src/ui/model-viewer.js` | Viewer container: load lifecycle, settings, and status |
 | `src/ui/viewer-surface.js` | Pure presentation: toolbar, stats, animation bar, and overlay |
+| `src/ui/texture-viewer.js` | Standalone TGA/EXR/HDR texture preview and tone mapping |
 | `src/ui/animation-bar.js` | Animation transport and progress updates |
 | `src/ui/chrome.js` | Toolbar, material/environment popovers, and stats panel |
 | `src/ui/primitives.js` | Shared small UI primitives |

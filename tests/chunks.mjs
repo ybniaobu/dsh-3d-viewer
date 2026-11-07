@@ -4,9 +4,17 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { disposeObject } from '../src/model.js';
 import * as THREE_BRIDGE from '../src/loaders/three-bridge.js';
+import { textureImageData } from '../src/ui/texture-viewer.js';
 
 globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
 globalThis.window = { innerWidth: 1024, innerHeight: 768 };
+globalThis.ImageData = class ImageData {
+  constructor(data, width, height) {
+    this.data = data;
+    this.width = width;
+    this.height = height;
+  }
+};
 
 const loaders = {
   fbx: 'loadFbxModel',
@@ -96,6 +104,10 @@ const tgaTexture = textures['tex-tga'].decodeTga(tga.buffer);
 assert.equal(tgaTexture.image.width, 2);
 assert.equal(tgaTexture.image.height, 2);
 assert.equal(tgaTexture.image.data.length, 16);
+const tgaPreview = textureImageData(tgaTexture);
+assert.equal(tgaPreview.width, 2);
+assert.equal(tgaPreview.height, 2);
+assert.equal(tgaPreview.data.length, 16);
 tgaTexture.dispose();
 
 // 4x4 flat Radiance RGBE (width < 8 uses the old non-RLE scanline format).
@@ -127,6 +139,10 @@ const hdrTexture = textures['tex-hdr'].decodeHdr(hdr.buffer);
 assert.equal(hdrTexture.image.width, hdrWidth);
 assert.equal(hdrTexture.image.height, hdrHeight);
 assert.equal(hdrTexture.userData.dsh3dHdr, true);
+const hdrPreview = textureImageData(hdrTexture);
+assert.equal(hdrPreview.width, hdrWidth);
+assert.equal(hdrPreview.height, hdrHeight);
+assert.equal(hdrPreview.data.length, hdrWidth * hdrHeight * 4);
 hdrTexture.dispose();
 
 console.log('Lazy loader chunks verified:', {
