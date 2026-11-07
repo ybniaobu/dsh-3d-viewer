@@ -85,29 +85,33 @@
 
 | 路径 | 职责 |
 | --- | --- |
-| `index.js` | 宿主端：注册只读的 `/dsh-3d-viewer/hdri/` 路由，提供包内 HDRI 文件 |
+| `index.js` | 宿主端：注册只读的 `/dsh-3d-viewer/hdri` 路由，提供包内 HDRI 文件 |
 | `src/client.js` | 插件入口；按格式注册 document preview 与 Sidebar slot |
 | `src/formats.js` | 格式注册表：id、扩展名、标题/徽标文案和格式归一化 |
 | `src/bytes.js` | 共用的字节、文本、路径、MIME、base64 辅助函数与取消错误 |
-| `src/ui/ModelViewer.js` | 渲染体容器，管理加载/错误状态、格式绑定与场景生命周期 |
-| `src/ui/ViewerSurface.js` | 纯展示层：工具条、统计、动画条和状态浮层，可脱离 WebGL 渲染 |
-| `src/ui/AnimationBar.js` | 动画工具条；播放状态与 30Hz 进度更新只重渲染这个小组件 |
+| `src/ui/model-viewer.js` | 渲染体容器，管理加载/错误状态、格式绑定与场景生命周期 |
+| `src/ui/viewer-surface.js` | 纯展示层：工具条、统计、动画条和状态浮层，可脱离 WebGL 渲染 |
+| `src/ui/animation-bar.js` | 动画工具条；播放状态与 30Hz 进度更新只重渲染这个小组件 |
 | `src/ui/chrome.js`、`icons.js`、`primitives.js` | 工具条、数据驱动的材质/环境弹层、统计面板、图标与格式化 |
 | `src/ui/styles.js`、`dictionaries.js`、`options.js` | 样式、中英文案和 UI 选项 |
-| `src/scene/createSceneView.js` | 场景编排：renderer、camera、controls、生命周期 |
+| `src/scene/create-scene-view.js` | 场景编排：renderer、camera、controls、生命周期 |
 | `src/scene/environment.js` | 从宿主路由获取 HDRI、解码、构建 PMREM 并按 id 缓存 |
 | `src/scene/materials.js` | Phong/Lambert → PBR 转换、材质预设、线框材质 |
 | `src/scene/ground.js` | 无限网格 shader 与阴影接收面；网格像素图全页只生成一次 |
 | `src/scene/animation.js` | AnimationMixer、片段时间轴和进度通知 |
 | `src/scene/camera.js`、`lighting.js`、`render-loop.js`、`postprocessing.js`、`blue-noise.js` | 取景与键盘旋转、灯光、帧调度、MSAA/ACES 后处理与蓝色噪声抖动 |
 | `src/loaders/workspace.js` | `resourceAddress` 解析、workspaceFiles 读取、绝对路径回退、贴图 Blob/白占位与资源回收 |
-| `src/loaders/model-loader.js` | FBX / OBJ / glTF / GLB / STL 异步加载与表驱动格式分派 |
+| `src/loaders/model-loader.js` | 懒加载格式 chunk 的分派，以及 FBX / OBJ / glTF / GLB / STL 异步加载 |
+| `src/loaders/fbx.js`、`obj.js`、`stl.js` | 各格式的解析、sidecar 解析与加载 |
 | `src/loaders/gltf.js` | glTF/GLB 外部 buffer/贴图预取（按资源去重）、动画挂载和资源清理 |
-| `src/model.js` | FBX / OBJ / STL 同步解析、统计、资源释放 |
-| `src/vendor/FBXLoaderPbr.js` | vendored Three.js FBXLoader，额外读取金属度/粗糙度自定义属性 |
+| `src/loaders/chunks/*.js` | 与 `client.js` 并列产出的懒加载格式 chunk 入口 |
+| `src/model.js` | 模型统计、内嵌节点剥离和资源释放 |
+| `src/vendor/fbx-loader-pbr.js` | vendored Three.js FBXLoader，额外读取金属度/粗糙度自定义属性 |
 | `tests/run.mjs` | 测试入口：每个 `tests/*.mjs` 都在独立进程中运行 |
 | `icon.svg` | 插件图标；DSH 元信息要求它位于包根目录 |
 | `assets/hdri/` | 由宿主路由提供的 HDRI 文件（Poly Haven CC0） |
+
+命名规范：源码文件用 `kebab-case`；React 组件和类用 `PascalCase`；函数和变量用 `camelCase`；模块常量用 `UPPER_SNAKE_CASE`。vendored loader 的内部实现保留上游命名。
 
 ## 许可证
 

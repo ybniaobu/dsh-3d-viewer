@@ -1,6 +1,6 @@
 import { abortError, toArrayBuffer, warn } from '../bytes.js';
 import { disposeObject } from '../model.js';
-import { FBXLoader } from '../vendor/FBXLoaderPbr.js';
+import { FBXLoader } from '../vendor/fbx-loader-pbr.js';
 import { createWorkspaceAssetLoader } from './workspace.js';
 
 /**

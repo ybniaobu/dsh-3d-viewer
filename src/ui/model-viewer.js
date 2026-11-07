@@ -2,12 +2,12 @@ import * as React from 'react';
 import { isGlbAddress, normalizeFormat } from '../formats.js';
 import { loadModelBytes, preloadModelFormat } from '../loaders/model-loader.js';
 import { collectModelStats, disposeObject } from '../model.js';
-import { createSceneView } from '../scene/createSceneView.js';
+import { createSceneView } from '../scene/create-scene-view.js';
 import { prefetchEnvironment } from '../scene/environment.js';
 import { ViewerError } from '../scene/viewer-error.js';
 import { en } from './dictionaries.js';
 import { DEFAULT_SETTINGS } from './options.js';
-import { ViewerSurface } from './ViewerSurface.js';
+import { ViewerSurface } from './viewer-surface.js';
 
 const h = React.createElement;
 const ENVIRONMENT_WAIT_MS = 3000;

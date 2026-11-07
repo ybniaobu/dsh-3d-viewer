@@ -2,8 +2,8 @@ import { Spherical, Vector3 } from 'three';
 
 const FIT_DIRECTION = new Vector3(1, 0.55, 1.3).normalize();
 const KEY_STEP = Math.PI / 36;
-const _offset = new Vector3();
-const _spherical = new Spherical();
+const scratchOffset = new Vector3();
+const scratchSpherical = new Spherical();
 
 /**
  * Keep the near/far planes proportional to the current orbit distance so the
@@ -68,16 +68,16 @@ export function isOrbitKey(key) {
  * @param {string} key KeyboardEvent.key value.
  */
 export function orbitByKey(camera, controls, key) {
-  _offset.copy(camera.position).sub(controls.target);
-  _spherical.setFromVector3(_offset);
+  scratchOffset.copy(camera.position).sub(controls.target);
+  scratchSpherical.setFromVector3(scratchOffset);
 
-  if (key === 'ArrowLeft') _spherical.theta += KEY_STEP;
-  else if (key === 'ArrowRight') _spherical.theta -= KEY_STEP;
-  else if (key === 'ArrowUp') _spherical.phi = Math.max(controls.minPolarAngle, _spherical.phi - KEY_STEP);
-  else if (key === 'ArrowDown') _spherical.phi = Math.min(controls.maxPolarAngle, _spherical.phi + KEY_STEP);
+  if (key === 'ArrowLeft') scratchSpherical.theta += KEY_STEP;
+  else if (key === 'ArrowRight') scratchSpherical.theta -= KEY_STEP;
+  else if (key === 'ArrowUp') scratchSpherical.phi = Math.max(controls.minPolarAngle, scratchSpherical.phi - KEY_STEP);
+  else if (key === 'ArrowDown') scratchSpherical.phi = Math.min(controls.maxPolarAngle, scratchSpherical.phi + KEY_STEP);
   else return;
 
-  camera.position.copy(controls.target).add(_offset.setFromSpherical(_spherical));
+  camera.position.copy(controls.target).add(scratchOffset.setFromSpherical(scratchSpherical));
   camera.lookAt(controls.target);
   controls.update();
 }

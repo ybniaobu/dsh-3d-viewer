@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ViewerSurface } from '../src/ui/ViewerSurface.js';
+import { ViewerSurface } from '../src/ui/viewer-surface.js';
 import { CSS } from '../src/ui/styles.js';
 
 // 1. Bundle integration: the plugin registers four bodies, and a newly opened

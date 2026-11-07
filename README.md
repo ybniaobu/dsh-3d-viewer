@@ -85,29 +85,33 @@ Notes:
 
 | Path | Responsibility |
 | --- | --- |
-| `index.js` | Host half: registers the read-only `/dsh-3d-viewer/hdri/` route that serves the packaged HDRIs |
+| `index.js` | Host half: registers the read-only `/dsh-3d-viewer/hdri` route that serves the packaged HDRIs |
 | `src/client.js` | Plugin entry; registers document previews and Sidebar slots per format |
 | `src/formats.js` | Format registry: ids, extensions, title/badge keys, and format normalization |
 | `src/bytes.js` | Shared byte, text, path, MIME, and base64 helpers plus the cancellation error |
-| `src/ui/ModelViewer.js` | Viewer container: loading/error state, format binding, and scene lifecycle |
-| `src/ui/ViewerSurface.js` | Pure presentation: toolbar, stats, animation bar, and status overlay; renderable without WebGL |
-| `src/ui/AnimationBar.js` | Animation transport; playback state and 30 Hz progress updates re-render only this small component |
+| `src/ui/model-viewer.js` | Viewer container: loading/error state, format binding, and scene lifecycle |
+| `src/ui/viewer-surface.js` | Pure presentation: toolbar, stats, animation bar, and status overlay; renderable without WebGL |
+| `src/ui/animation-bar.js` | Animation transport; playback state and 30 Hz progress updates re-render only this small component |
 | `src/ui/chrome.js`, `icons.js`, `primitives.js` | Toolbar, data-driven material/environment popovers, stats panel, icons, and formatting |
 | `src/ui/styles.js`, `dictionaries.js`, `options.js` | Styles, English/Chinese copy, and UI options |
-| `src/scene/createSceneView.js` | Scene orchestration: renderer, camera, controls, lifecycle |
+| `src/scene/create-scene-view.js` | Scene orchestration: renderer, camera, controls, lifecycle |
 | `src/scene/environment.js` | HDRI fetch from the host route, decode, PMREM construction, and per-id caching |
 | `src/scene/materials.js` | Phong/Lambert → PBR conversion, material presets, and wireframe material |
 | `src/scene/ground.js` | Infinite grid shader and shadow receiver; grid pixels are generated once per page |
 | `src/scene/animation.js` | AnimationMixer, clip timeline, and progress notifications |
 | `src/scene/camera.js`, `lighting.js`, `render-loop.js`, `postprocessing.js`, `blue-noise.js` | Framing and keyboard orbit, lighting, frame scheduling, MSAA/ACES post-processing, and blue-noise dithering |
 | `src/loaders/workspace.js` | `resourceAddress` parsing, workspaceFiles reads, absolute-path fallback, texture Blob/white fallback, and resource cleanup |
-| `src/loaders/model-loader.js` | Async FBX / OBJ / glTF / GLB / STL loading and table-driven format dispatch |
+| `src/loaders/model-loader.js` | Lazy format-chunk dispatch and async FBX / OBJ / glTF / GLB / STL loading |
+| `src/loaders/fbx.js`, `obj.js`, `stl.js` | Per-format parsing, sidecar resolution, and loading |
 | `src/loaders/gltf.js` | glTF/GLB external buffer/texture prefetch (deduplicated by resource), animation wiring, and cleanup |
-| `src/model.js` | Synchronous FBX / OBJ / STL parsing, stats, and resource disposal |
-| `src/vendor/FBXLoaderPbr.js` | Vendored Three.js FBXLoader with metalness/roughness custom-attribute support |
+| `src/loaders/chunks/*.js` | One entry per lazy format chunk emitted beside `client.js` |
+| `src/model.js` | Model stats, embedded-node stripping, and resource disposal |
+| `src/vendor/fbx-loader-pbr.js` | Vendored Three.js FBXLoader with metalness/roughness custom-attribute support |
 | `tests/run.mjs` | Test entry; each `tests/*.mjs` runs in its own process |
 | `icon.svg` | Plugin icon; DSH metadata requires it at the package root |
 | `assets/hdri/` | Packaged HDRI files served by the host route (Poly Haven CC0) |
+
+Naming: source files use `kebab-case`; React components and classes use `PascalCase`; functions and variables use `camelCase`; module constants use `UPPER_SNAKE_CASE`. Vendored loader internals keep their upstream names.
 
 ## License
 

@@ -1,7 +1,7 @@
 import * as THREE_BRIDGE from './loaders/three-bridge.js';
 import { FORMAT_ENTRIES } from './formats.js';
 import { parseFileAddress, readWorkspaceFile } from './loaders/workspace.js';
-import { VIEWER_COMPONENTS } from './ui/ModelViewer.js';
+import { VIEWER_COMPONENTS } from './ui/model-viewer.js';
 import { en, zh } from './ui/dictionaries.js';
 
 const NS = 'dsh3dViewer';

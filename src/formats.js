@@ -1,7 +1,7 @@
 /**
  * The single registry of document formats this plugin renders.
  *
- * Registration (client.js), the viewer factories (ui/ModelViewer.js), the HUD
+ * Registration (client.js), the viewer factories (ui/model-viewer.js), the HUD
  * badge (ui/chrome.js), and format normalization all derive from this table,
  * so a format is declared exactly once instead of in four parallel lists.
  */

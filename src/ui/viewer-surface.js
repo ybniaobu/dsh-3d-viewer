@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AnimationBar } from './AnimationBar.js';
+import { AnimationBar } from './animation-bar.js';
 import {
   Badge,
   Hint,

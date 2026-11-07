@@ -9,7 +9,7 @@ import {
   SRGBColorSpace,
   Texture,
 } from 'three';
-import { extractFbxMetalness, extractFbxRoughness } from '../src/vendor/FBXLoaderPbr.js';
+import { extractFbxMetalness, extractFbxRoughness } from '../src/vendor/fbx-loader-pbr.js';
 import { MATERIAL_PRESETS, createMaterialController, toPbrMaterial } from '../src/scene/materials.js';
 import { MATERIAL_OPTIONS } from '../src/ui/options.js';
 
