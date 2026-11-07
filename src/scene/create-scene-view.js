@@ -13,6 +13,9 @@ import { configureViewerRenderer } from './renderer.js';
 import { rendererPool } from './renderer-pool.js';
 
 const MAX_PIXEL_RATIO = 2;
+// A delayed frame must not rotate the camera by the whole gap; cap the
+// auto-rotate step so periodic frame-time spikes do not look like a jump.
+const MAX_AUTO_ROTATE_DELTA = 1 / 30;
 
 /** Device pixel ratio, clamped so 4K/5K displays do not quadruple the cost. */
 function readPixelRatio() {
@@ -133,7 +136,7 @@ export function createSceneView(host, object, stats, options = {}) {
 
   const loop = createRenderLoop((delta, timestamp) => {
     animation.update(delta, timestamp);
-    if (autoRotate) controls.update(delta);
+    if (autoRotate) controls.update(Math.min(delta, MAX_AUTO_ROTATE_DELTA));
     post.render(delta);
   });
 
