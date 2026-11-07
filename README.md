@@ -74,7 +74,7 @@ Notes:
 - **OBJ**: a missing MTL falls back to default materials; missing textures use white placeholders.
 - **glTF / GLB**: resources shared by several primitives are read once.
 - **STL**: no materials or animations.
-- **Textures**: PNG/JPEG/WebP/GIF use browser decoding; TGA and EXR decode through lazy texture chunks. EXR keeps its linear HDR data.
+- **Textures**: PNG/JPEG/WebP/GIF use browser decoding; TGA, EXR, and HDR decode through lazy texture chunks. EXR/HDR keep their linear HDR data.
 
 ### Not supported
 
@@ -147,7 +147,7 @@ Notes:
 | `src/loaders/obj.js` | OBJ parsing and MTL/texture resolution |
 | `src/loaders/stl.js` | STL parsing |
 | `src/loaders/gltf.js` | glTF/GLB buffers, textures, animations, and cleanup |
-| `src/loaders/workspace.js` | Resource addresses, workspace reads, TGA/EXR dispatch, and texture fallback |
+| `src/loaders/workspace.js` | Resource addresses, workspace reads, TGA/EXR/HDR dispatch, and texture fallback |
 | `src/loaders/chunk-require.js` | `require.async` bridge for DSH package chunks |
 | `src/loaders/three-bridge.js` | Curated Three exports shared with lazy chunks |
 | `src/loaders/chunks/*.js` | One entry per lazy format or texture chunk |

@@ -29,12 +29,13 @@ const textureChunkPromises = new Map();
 
 /**
  * @param {string} path Texture path.
- * @returns {'tga' | 'exr' | null} Specialized decoder, if any.
+ * @returns {'tga' | 'exr' | 'hdr' | null} Specialized decoder, if any.
  */
 function textureFormatOf(path) {
   const clean = String(path).split(/[?#]/, 1)[0].toLowerCase();
   if (clean.endsWith('.tga')) return 'tga';
   if (clean.endsWith('.exr')) return 'exr';
+  if (clean.endsWith('.hdr')) return 'hdr';
   return null;
 }
 
@@ -56,13 +57,14 @@ function loadTextureChunk(format) {
 /**
  * Decode a specialized texture through its lazy chunk.
  *
- * @param {'tga' | 'exr'} format Texture format.
+ * @param {'tga' | 'exr' | 'hdr'} format Texture format.
  * @param {Uint8Array | ArrayBuffer} data Complete bytes.
  * @returns {Promise<Texture>} Decoded texture.
  */
 async function decodeTexture(format, data) {
   const module = await loadTextureChunk(format);
-  const decode = format === 'tga' ? module.decodeTga : module.decodeExr;
+  const decoders = { tga: 'decodeTga', exr: 'decodeExr', hdr: 'decodeHdr' };
+  const decode = module[decoders[format]];
   if (typeof decode !== 'function') {
     throw new Error(`The ${format.toUpperCase()} decoder chunk is unavailable.`);
   }

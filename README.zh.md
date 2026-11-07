@@ -74,7 +74,7 @@
 - **OBJ**：缺少 MTL 时回退默认材质；贴图缺失时使用白色占位。
 - **glTF / GLB**：多个图元共用的资源只读取一次。
 - **STL**：没有材质和动画。
-- **贴图**：PNG/JPEG/WebP/GIF 走浏览器解码；TGA、EXR 走懒加载纹理 chunk，EXR 保留线性 HDR 数据。
+- **贴图**：PNG/JPEG/WebP/GIF 走浏览器解码；TGA、EXR、HDR 走懒加载纹理 chunk，EXR/HDR 保留线性 HDR 数据。
 
 ### 暂不支持
 
@@ -147,7 +147,7 @@
 | `src/loaders/obj.js` | OBJ 解析与 MTL/贴图解析 |
 | `src/loaders/stl.js` | STL 解析 |
 | `src/loaders/gltf.js` | glTF/GLB buffer、贴图、动画与清理 |
-| `src/loaders/workspace.js` | 资源地址、工作区读取、TGA/EXR 分派与贴图回退 |
+| `src/loaders/workspace.js` | 资源地址、工作区读取、TGA/EXR/HDR 分派与贴图回退 |
 | `src/loaders/chunk-require.js` | DSH 包 chunk 的 `require.async` 桥 |
 | `src/loaders/three-bridge.js` | 与懒加载 chunk 共享的 Three 导出 |
 | `src/loaders/chunks/*.js` | 每个懒加载格式/纹理 chunk 一个入口 |

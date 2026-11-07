@@ -17,6 +17,7 @@ const loaders = {
 const textureLoaders = {
   'tex-tga': 'decodeTga',
   'tex-exr': 'decodeExr',
+  'tex-hdr': 'decodeHdr',
 };
 const loaded = {};
 const textures = {};
@@ -96,6 +97,37 @@ assert.equal(tgaTexture.image.width, 2);
 assert.equal(tgaTexture.image.height, 2);
 assert.equal(tgaTexture.image.data.length, 16);
 tgaTexture.dispose();
+
+// 4x4 flat Radiance RGBE (width < 8 uses the old non-RLE scanline format).
+const hdrWidth = 4;
+const hdrHeight = 4;
+const hdrHeader = Buffer.from(
+  `#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y ${hdrHeight} +X ${hdrWidth}\n`,
+  'ascii',
+);
+const hdrPixels = new Uint8Array(hdrWidth * hdrHeight * 4);
+for (let y = 0; y < hdrHeight; y += 1) {
+  for (let x = 0; x < hdrWidth; x += 1) {
+    const index = (y * hdrWidth + x) * 4;
+    const red = x / hdrWidth;
+    const green = y / hdrHeight;
+    const max = Math.max(red, green, 0.5);
+    const exponent = Math.floor(Math.log2(max)) + 1;
+    const scale = 256 / 2 ** exponent;
+    hdrPixels[index] = Math.floor(red * scale);
+    hdrPixels[index + 1] = Math.floor(green * scale);
+    hdrPixels[index + 2] = Math.floor(0.5 * scale);
+    hdrPixels[index + 3] = exponent + 128;
+  }
+}
+const hdr = new Uint8Array(hdrHeader.length + hdrPixels.length);
+hdr.set(hdrHeader);
+hdr.set(hdrPixels, hdrHeader.length);
+const hdrTexture = textures['tex-hdr'].decodeHdr(hdr.buffer);
+assert.equal(hdrTexture.image.width, hdrWidth);
+assert.equal(hdrTexture.image.height, hdrHeight);
+assert.equal(hdrTexture.userData.dsh3dHdr, true);
+hdrTexture.dispose();
 
 console.log('Lazy loader chunks verified:', {
   formats: Object.keys(loaders),
