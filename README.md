@@ -7,7 +7,7 @@ English | [中文](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.zh
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-Preview FBX, OBJ, glTF, GLB, and STL models plus TGA/EXR/HDR textures from the current session's workspace in DSH's right sidebar. No uploads or network: open a model, orbit, zoom, switch materials and environments, and play embedded animations.
+Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures from the current session's workspace in DSH's right sidebar. No uploads or network: open a model, orbit, zoom, switch materials and environments, and play embedded animations.
 
 ![3D Viewer preview](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
@@ -60,9 +60,9 @@ Use this for offline or intranet distribution.
 | --- | --- |
 | **FBX** | Meshes, hierarchy, materials, embedded textures, animations, and node data |
 | **OBJ** | Polygons, `o`/`g` groups, normals, UVs, vertex colors, line/point primitives, `mtllib`/MTL, and common textures |
-| **glTF / GLB** | Animations, skinning, embedded resources, and external `.bin` files and textures |
+| **glTF, GLB** | Animations, skinning, embedded resources, and external `.bin` files and textures |
 | **STL** | ASCII and binary STL; neutral double-sided PBR material; binary vertex colors preserved |
-| **TGA / EXR / HDR** | Standalone texture preview; TGA shows 8-bit RGBA, EXR/HDR are tone-mapped from linear HDR data |
+| **TGA, EXR, HDR** | Standalone texture preview; TGA shows 8-bit RGBA, EXR and HDR are tone-mapped from linear HDR data |
 
 External resources (FBX/glTF textures, glTF `.bin`, OBJ MTL and textures) are read from the session workspace.
 
@@ -75,11 +75,11 @@ Notes:
 - **OBJ**: a missing MTL falls back to default materials; missing textures use white placeholders.
 - **glTF / GLB**: resources shared by several primitives are read once.
 - **STL**: no materials or animations.
-- **Textures**: PNG/JPEG/WebP/GIF use browser decoding; TGA, EXR, and HDR decode through lazy texture chunks. EXR/HDR keep their linear HDR data. Standalone texture previews zoom with the mouse wheel, pan by dragging when zoomed, reset with the **Fit** button or a double-click, and can be flipped vertically when a source stores rows bottom-up.
+- **Textures**: PNG, JPEG, WebP, and GIF use browser decoding; TGA, EXR, and HDR decode through lazy texture chunks. EXR and HDR keep their linear HDR data. Standalone texture previews zoom with the mouse wheel, pan by dragging when zoomed, reset with the **Fit** button or a double-click, and can be flipped vertically when a source stores rows bottom-up.
 
 ### Texture previews
 
-TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders are used for external FBX/OBJ texture references.
+TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders are used for external FBX and OBJ texture references.
 
 | Format | Decoded data | Preview behavior |
 | --- | --- | --- |
@@ -87,10 +87,10 @@ TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders
 | **EXR** | 16-bit half float or 32-bit float, 1–4 channels | Linear HDR data is tone-mapped to SDR for display. |
 | **HDR** | Radiance RGBE, decoded to 16-bit half float by default | Linear HDR data is tone-mapped to SDR for display. |
 
-- EXR/HDR previews use exposure 1 and Reinhard tone mapping before sRGB output; material rendering keeps the linear values.
+- EXR and HDR previews use exposure 1 and Reinhard tone mapping before sRGB output; material rendering keeps the linear values.
 - The metadata badge shows dimensions, per-channel bit depth, and the current zoom percentage.
 - Direct previews support wheel zoom, drag-to-pan when zoomed, **Fit** / double-click reset, and **Flip Y** for bottom-up sources.
-- Decoder chunks are fetched only on first use; opening a PNG/JPEG or a model that never uses TGA/EXR/HDR does not download them.
+- Decoder chunks are fetched only on first use; opening a PNG or JPEG, or a model that never uses TGA, EXR, or HDR, does not download them.
 - DDS, KTX2, and PVR still fall back to the white placeholder.
 
 ### Not supported
@@ -130,7 +130,7 @@ TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders
 | --- | --- |
 | `src/ui/model-viewer.js` | Viewer container: load lifecycle, settings, and status |
 | `src/ui/viewer-surface.js` | Pure presentation: toolbar, stats, animation bar, and overlay |
-| `src/ui/texture-viewer.js` | Standalone TGA/EXR/HDR texture preview, tone mapping, wheel zoom, pan, and vertical flip |
+| `src/ui/texture-viewer.js` | Standalone TGA, EXR, HDR texture preview, tone mapping, wheel zoom, pan, and vertical flip |
 | `src/ui/animation-bar.js` | Animation transport and progress updates |
 | `src/ui/chrome.js` | Toolbar, material/environment popovers, and stats panel |
 | `src/ui/primitives.js` | Shared small UI primitives |
@@ -165,8 +165,8 @@ TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders
 | `src/loaders/fbx.js` | FBX parsing and texture sidecars |
 | `src/loaders/obj.js` | OBJ parsing and MTL/texture resolution |
 | `src/loaders/stl.js` | STL parsing |
-| `src/loaders/gltf.js` | glTF/GLB buffers, textures, animations, and cleanup |
-| `src/loaders/workspace.js` | Resource addresses, workspace reads, TGA/EXR/HDR dispatch, and texture fallback |
+| `src/loaders/gltf.js` | glTF, GLB buffers, textures, animations, and cleanup |
+| `src/loaders/workspace.js` | Resource addresses, workspace reads, TGA, EXR, HDR dispatch, and texture fallback |
 | `src/loaders/chunk-require.js` | `require.async` bridge for DSH package chunks |
 | `src/loaders/three-bridge.js` | Curated Three exports shared with lazy chunks |
 | `src/loaders/chunks/*.js` | One entry per lazy format or texture chunk |

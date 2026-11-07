@@ -1,13 +1,13 @@
 # DSH 3D Viewer
 
-Preview FBX, OBJ, glTF/GLB, and STL models plus TGA, EXR, and HDR textures directly in DSH's right sidebar.
+Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures directly in DSH's right sidebar.
 
 **Requires DSH Desktop 0.2.2-rc.1 or newer** (built and tested on 0.2.2-rc.1).
 
 ## What's new in 0.2.0
 
 - TGA, EXR, and HDR files can be opened directly as texture previews.
-- TGA/EXR/HDR sidecar textures are decoded through lazy chunks and can be used by FBX/OBJ materials.
+- TGA, EXR, and HDR sidecar textures are decoded through lazy chunks and can be used by FBX and OBJ materials.
 - Texture previews support wheel zoom, drag panning, Fit/double-click reset, vertical flip, and dimension/bit-depth/zoom metadata.
 - Large models are read through parallel windows with a preallocated output buffer; complete files are cached by version.
 - Startup and scene setup are faster: lazy format chunks, shared renderers/PMREM targets, shader warmup, and fewer material conversions.
@@ -17,7 +17,7 @@ Preview FBX, OBJ, glTF/GLB, and STL models plus TGA, EXR, and HDR textures direc
 
 - Orbit, zoom, pan, and keyboard navigation; reset view and 15-second auto-rotate
 - Six material presets and four built-in HDRI environments
-- Standalone TGA/EXR/HDR texture previews with tone mapping and byte-size/bit-depth metadata
+- Standalone TGA, EXR, and HDR texture previews with tone mapping and byte-size/bit-depth metadata
 - Animation playback with clip switching, seeking, and progress
 - Mesh, vertex, triangle, and file-size statistics
 - Embedded lights, cameras, and audio in source files are ignored

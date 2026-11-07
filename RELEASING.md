@@ -52,4 +52,4 @@ npm publish
   `index.js`, `cordis.patch.yml`, `locale/*.json`, the docs, `icon.svg`, and
   `assets/hdri/*`.
 - Install the tarball or the npm package in a clean profile and open one FBX,
-  OBJ, glTF/GLB, and STL file; switch all four environments and reload the page.
+  OBJ, glTF, GLB, and STL file; switch all four environments and reload the page.

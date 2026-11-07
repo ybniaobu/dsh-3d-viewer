@@ -7,7 +7,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA/EXR/HDR 纹理。无需上传或联网：打开模型即可旋转、缩放、切换材质与环境，并播放内置动画。
+在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA、EXR、HDR 纹理。无需上传或联网：打开模型即可旋转、缩放、切换材质与环境，并播放内置动画。
 
 ![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
@@ -60,9 +60,9 @@
 | --- | --- |
 | **FBX** | 网格、层级、材质、内嵌贴图、动画、节点数据 |
 | **OBJ** | 多边形、`o`/`g` 分组、法线、UV、顶点色、线与点图元、`mtllib`/MTL、常用贴图 |
-| **glTF / GLB** | 动画、蒙皮、内嵌资源、外部 `.bin` 与贴图 |
+| **glTF、GLB** | 动画、蒙皮、内嵌资源、外部 `.bin` 与贴图 |
 | **STL** | ASCII 与二进制 STL；中性双面 PBR 材质；保留二进制顶点色 |
-| **TGA / EXR / HDR** | 独立纹理预览；TGA 显示 8-bit RGBA，EXR/HDR 从线性 HDR 数据色调映射 |
+| **TGA、EXR、HDR** | 独立纹理预览；TGA 显示 8-bit RGBA，EXR、HDR 从线性 HDR 数据色调映射 |
 
 外部资源（FBX/glTF 贴图、glTF `.bin`、OBJ MTL 与贴图）均从会话工作区读取。
 
@@ -75,11 +75,11 @@
 - **OBJ**：缺少 MTL 时回退默认材质；贴图缺失时使用白色占位。
 - **glTF / GLB**：多个图元共用的资源只读取一次。
 - **STL**：没有材质和动画。
-- **贴图**：PNG/JPEG/WebP/GIF 走浏览器解码；TGA、EXR、HDR 走懒加载纹理 chunk，EXR/HDR 保留线性 HDR 数据。独立纹理预览支持滚轮缩放，放大后可拖拽平移，点 **适应窗口** 或双击复位；源文件按自下而上存储时可点 **垂直翻转**。
+- **贴图**：PNG、JPEG、WebP、GIF 走浏览器解码；TGA、EXR、HDR 走懒加载纹理 chunk，EXR、HDR 保留线性 HDR 数据。独立纹理预览支持滚轮缩放，放大后可拖拽平移，点 **适应窗口** 或双击复位；源文件按自下而上存储时可点 **垂直翻转**。
 
 ### 纹理预览
 
-TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也用于 FBX/OBJ 的外部贴图引用。
+TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也用于 FBX、OBJ 的外部贴图引用。
 
 | 格式 | 解码数据 | 预览行为 |
 | --- | --- | --- |
@@ -87,10 +87,10 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 | **EXR** | 16-bit half float 或 32-bit float，1–4 通道 | 线性 HDR 数据经色调映射后显示。 |
 | **HDR** | Radiance RGBE，默认解码为 16-bit half float | 线性 HDR 数据经色调映射后显示。 |
 
-- EXR/HDR 预览使用曝光 1 和 Reinhard 色调映射，再输出 sRGB；材质渲染仍使用线性值。
+- EXR、HDR 预览使用曝光 1 和 Reinhard 色调映射，再输出 sRGB；材质渲染仍使用线性值。
 - 元信息显示尺寸、每通道位深和当前缩放比例。
 - 独立预览支持滚轮缩放、放大后拖拽平移、**适应窗口** / 双击复位，以及 **垂直翻转**。
-- 解码 chunk 只在首次使用时加载；打开 PNG/JPEG 或不使用 TGA/EXR/HDR 的模型不会下载它们。
+- 解码 chunk 只在首次使用时加载；打开 PNG、JPEG 或不使用 TGA、EXR、HDR 的模型不会下载它们。
 - DDS、KTX2、PVR 仍回退为白色占位。
 
 ### 暂不支持
@@ -109,7 +109,7 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 | `cordis.patch.yml` | 插入插件行的 bundle patch |
 | `package.json` | DSH manifest、exports、engines 和打包文件列表 |
 | `dist/client.js` | 预构建客户端入口，经 `exports["./client"]` 提供 |
-| `dist/client.*.js` | FBX/OBJ/glTF/STL 与 TGA/EXR/HDR 懒加载 chunk，与入口同目录 |
+| `dist/client.*.js` | FBX、OBJ、glTF、GLB、STL 与 TGA、EXR、HDR 懒加载 chunk，与入口同目录 |
 | `icon.svg` | DSH 元信息要求的包根图标 |
 | `locale/*.json` | 中英文 UI 字典 |
 | `assets/hdri/` | 由宿主路由提供的 Poly Haven CC0 HDRI |
@@ -130,7 +130,7 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 | --- | --- |
 | `src/ui/model-viewer.js` | 渲染体容器：加载生命周期、设置与状态 |
 | `src/ui/viewer-surface.js` | 纯展示：工具条、统计、动画条与状态浮层 |
-| `src/ui/texture-viewer.js` | TGA/EXR/HDR 独立纹理预览、色调映射、滚轮缩放、拖拽平移与垂直翻转 |
+| `src/ui/texture-viewer.js` | TGA、EXR、HDR 独立纹理预览、色调映射、滚轮缩放、拖拽平移与垂直翻转 |
 | `src/ui/animation-bar.js` | 动画播放控制与进度更新 |
 | `src/ui/chrome.js` | 工具条、材质/环境弹层与统计面板 |
 | `src/ui/primitives.js` | 共用小组件 |
@@ -165,8 +165,8 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 | `src/loaders/fbx.js` | FBX 解析与贴图 sidecar |
 | `src/loaders/obj.js` | OBJ 解析与 MTL/贴图解析 |
 | `src/loaders/stl.js` | STL 解析 |
-| `src/loaders/gltf.js` | glTF/GLB buffer、贴图、动画与清理 |
-| `src/loaders/workspace.js` | 资源地址、工作区读取、TGA/EXR/HDR 分派与贴图回退 |
+| `src/loaders/gltf.js` | glTF、GLB buffer、贴图、动画与清理 |
+| `src/loaders/workspace.js` | 资源地址、工作区读取、TGA、EXR、HDR 分派与贴图回退 |
 | `src/loaders/chunk-require.js` | DSH 包 chunk 的 `require.async` 桥 |
 | `src/loaders/three-bridge.js` | 与懒加载 chunk 共享的 Three 导出 |
 | `src/loaders/chunks/*.js` | 每个懒加载格式/纹理 chunk 一个入口 |
