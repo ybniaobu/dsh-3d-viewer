@@ -7,13 +7,13 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA、EXR、HDR 纹理。无需上传或联网：打开模型即可旋转、缩放、切换材质与环境，并播放内置动画。
+在 DSH 右侧边栏预览当前会话工作区里的 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA、EXR、HDR 纹理。无需上传或联网：打开模型即可旋转、缩放、自动旋转、切换材质与环境，并播放内置动画。
 
 ![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.png)
 
 ## 安装与启用
 
-插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `dist/client.js` 包含查看器与 Three.js 核心；各格式 Loader 是包内懒加载 chunk，只在首次打开该格式时加载。四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
+插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `dist/client.js` 包含查看器与 Three.js 核心；模型 Loader 与 TGA、EXR、HDR 解码器都是包内懒加载 chunk，只在首次使用时加载。四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
 
 ### 从 npm 安装（推荐）
 
@@ -22,7 +22,6 @@
 3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.2.0`。
 4. **Registry** 选择 npm 官方源（国内也可用 npmmirror）。
 5. 点击 **Install**，在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
-6. 回到会话打开模型或纹理。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
 
 > **更新**：先在 **Plugins** 中移除旧版本，再安装更高版本的新包。
 
@@ -35,7 +34,6 @@
 3. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
 4. 填入插件目录的绝对路径（例如 `F:\plugins\dsh-3d-viewer`），点击 **Install**。
 5. 在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
-6. 回到会话打开模型或纹理。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
 
 > 本地安装以链接方式引用目录，安装后不要移动、重命名或删除它，否则 DSH 下次启动可能找不到插件。
 >
@@ -45,14 +43,13 @@
 
 - DSH Desktop 0.2.2-rc.1 或更高版本（在 0.2.2-rc.1 上构建和测试）。
 - 支持 WebGL 2，否则预览会报错。
-- 模型文件位于会话工作区内，可通过右侧边栏的 **Files** 打开。
+- 模型和纹理文件位于会话工作区内，可通过右侧边栏的 **Files** 打开。
 
 ## 打开模型或纹理
 
-1. 打开任意会话，点击对话右上角的右侧边栏按钮。
-2. 在右侧边栏打开 **Files**（也可按 `Mod+P`）。
-3. 点击任意 `.fbx`、`.obj`、`.gltf`、`.glb`、`.stl`、`.tga`、`.exr` 或 `.hdr` 文件。
-4. 模型或纹理在预览标签中打开。大文件和第一次切换环境可能需要几秒钟。
+在任意会话中打开右侧边栏，再打开 **Files**（`Mod+P`），点击 `.fbx`、`.obj`、`.gltf`、`.glb`、`.stl`、`.tga`、`.exr` 或 `.hdr` 文件，即可在预览标签中打开。大文件和第一次切换环境可能需要几秒钟。
+
+若没有出现预览，先刷新页面；仍未出现时重启 DSH。
 
 ## 支持的文件格式
 
@@ -62,20 +59,17 @@
 | **OBJ** | 多边形、`o`/`g` 分组、法线、UV、顶点色、线与点图元、`mtllib`/MTL、常用贴图 |
 | **glTF、GLB** | 动画、蒙皮、内嵌资源、外部 `.bin` 与贴图 |
 | **STL** | ASCII 与二进制 STL；中性双面 PBR 材质；保留二进制顶点色 |
-| **TGA、EXR、HDR** | 独立纹理预览；TGA 显示 8-bit RGBA，EXR、HDR 从线性 HDR 数据色调映射 |
+| **TGA、EXR、HDR** | 独立纹理预览，以及 FBX、OBJ 的 sidecar 贴图；见下方 [纹理预览](#纹理预览) |
 
-外部资源（FBX/glTF 贴图、glTF `.bin`、OBJ MTL 与贴图）均从会话工作区读取。
-
-四个环境是例外：HDRI 随插件包分发，由宿主端从本机 DSH 服务器的 `/dsh-3d-viewer/hdri/` 只读路由提供，切换环境不会联网。
+外部资源（FBX、glTF 贴图、glTF `.bin`、OBJ MTL 与贴图）均从会话工作区读取。
 
 补充说明：
 
 - **所有格式**：文件自带的灯光、相机和音频节点会被移除，预览统一使用自己的灯光和相机。
 - **FBX**：外部贴图缺失时仅告警，不阻断几何显示。
 - **OBJ**：缺少 MTL 时回退默认材质；贴图缺失时使用白色占位。
-- **glTF / GLB**：多个图元共用的资源只读取一次。
+- **glTF、GLB**：多个图元共用的资源只读取一次。
 - **STL**：没有材质和动画。
-- **贴图**：PNG、JPEG、WebP、GIF 走浏览器解码；TGA、EXR、HDR 走懒加载纹理 chunk，EXR、HDR 保留线性 HDR 数据。独立纹理预览支持滚轮缩放，放大后可拖拽平移，点 **适应窗口** 或双击复位；源文件按自下而上存储时可点 **垂直翻转**。
 
 ### 纹理预览
 
@@ -91,7 +85,6 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 - 元信息显示尺寸、每通道位深和当前缩放比例。
 - 独立预览支持滚轮缩放、放大后拖拽平移、**适应窗口** / 双击复位，以及 **垂直翻转**。
 - 解码 chunk 只在首次使用时加载；打开 PNG、JPEG 或不使用 TGA、EXR、HDR 的模型不会下载它们。
-- DDS、KTX2、PVR 仍回退为白色占位。
 
 ### 暂不支持
 
@@ -176,9 +169,9 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 
 | 路径 | 职责 |
 | --- | --- |
-| `build.mjs` | 构建 `dist/client.js` 与格式 chunk |
+| `build.mjs` | 构建 `dist/client.js`、格式 chunk 与纹理 chunk |
 | `tests/run.mjs` | 每个 `tests/*.mjs` 在独立进程中运行 |
-| `tests/*.mjs` | loader、renderer pool、HDRI 路由、SSR、manifest 与 chunks |
+| `tests/*.mjs` | loader、renderer pool、HDRI 路由、SSR、manifest、chunks 与纹理预览 |
 
 命名规范：源码文件用 `kebab-case`；React 组件和类用 `PascalCase`；函数和变量用 `camelCase`；模块常量用 `UPPER_SNAKE_CASE`。vendored loader 的内部实现保留上游命名。
 

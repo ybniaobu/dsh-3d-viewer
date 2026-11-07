@@ -17,7 +17,7 @@ Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures dire
 
 - Orbit, zoom, pan, and keyboard navigation; reset view and 15-second auto-rotate
 - Six material presets and four built-in HDRI environments
-- Standalone TGA, EXR, and HDR texture previews with tone mapping and byte-size/bit-depth metadata
+- Standalone TGA, EXR, and HDR texture previews with tone mapping and dimension/bit-depth/zoom metadata
 - Animation playback with clip switching, seeking, and progress
 - Mesh, vertex, triangle, and file-size statistics
 - Embedded lights, cameras, and audio in source files are ignored
