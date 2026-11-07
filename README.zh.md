@@ -75,7 +75,7 @@
 - **OBJ**：缺少 MTL 时回退默认材质；贴图缺失时使用白色占位。
 - **glTF / GLB**：多个图元共用的资源只读取一次。
 - **STL**：没有材质和动画。
-- **贴图**：PNG/JPEG/WebP/GIF 走浏览器解码；TGA、EXR、HDR 走懒加载纹理 chunk，EXR/HDR 保留线性 HDR 数据。
+- **贴图**：PNG/JPEG/WebP/GIF 走浏览器解码；TGA、EXR、HDR 走懒加载纹理 chunk，EXR/HDR 保留线性 HDR 数据。独立纹理预览支持滚轮缩放，放大后可拖拽平移，点 **适应窗口** 或双击复位。
 
 ### 暂不支持
 
@@ -114,7 +114,7 @@
 | --- | --- |
 | `src/ui/model-viewer.js` | 渲染体容器：加载生命周期、设置与状态 |
 | `src/ui/viewer-surface.js` | 纯展示：工具条、统计、动画条与状态浮层 |
-| `src/ui/texture-viewer.js` | TGA/EXR/HDR 独立纹理预览与色调映射 |
+| `src/ui/texture-viewer.js` | TGA/EXR/HDR 独立纹理预览、色调映射、滚轮缩放与拖拽平移 |
 | `src/ui/animation-bar.js` | 动画播放控制与进度更新 |
 | `src/ui/chrome.js` | 工具条、材质/环境弹层与统计面板 |
 | `src/ui/primitives.js` | 共用小组件 |

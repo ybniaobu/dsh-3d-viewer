@@ -5,6 +5,7 @@ import { CSS } from './styles.js';
 import { en } from './dictionaries.js';
 
 const h = React.createElement;
+const MAX_TEXTURE_ZOOM = 16;
 
 function fallbackTranslate(key, params) {
   const template = en[key] ?? key;
@@ -184,7 +185,11 @@ function TextureViewer(props) {
     bits: 0,
   });
   const [attempt, setAttempt] = React.useState(0);
+  const [view, setView] = React.useState({ scale: 1, x: 0, y: 0 });
+  const [dragging, setDragging] = React.useState(false);
   const canvasRef = React.useRef(null);
+  const stageRef = React.useRef(null);
+  const dragRef = React.useRef(null);
   const loadBytesRef = React.useRef(typeof props.loadBytes === 'function' ? props.loadBytes : null);
   const addressRef = React.useRef(typeof props.resourceAddress === 'string' ? props.resourceAddress : null);
   const rendererRef = React.useRef(renderer);
@@ -199,6 +204,7 @@ function TextureViewer(props) {
 
     const run = async () => {
       setState({ status: 'loading', failure: null, width: 0, height: 0, bits: 0 });
+      setView({ scale: 1, x: 0, y: 0 });
       try {
         let bytes = directData;
         let version;
@@ -227,6 +233,7 @@ function TextureViewer(props) {
         const info = drawTexture(canvasRef.current, texture);
         texture.dispose();
         activeRenderer?.loaded?.(version);
+        setView({ scale: 1, x: 0, y: 0 });
         setState({ status: 'ready', failure: null, ...info });
       } catch (error) {
         if (disposed || controller.signal.aborted) return;
@@ -252,25 +259,112 @@ function TextureViewer(props) {
     };
   }, [attempt, directData, format, renderer?.revision]);
 
+  React.useEffect(() => {
+    if (state.status !== 'ready') return undefined;
+    const stage = stageRef.current;
+    if (stage === null) return undefined;
+
+    const onWheel = (event) => {
+      event.preventDefault();
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : 1);
+
+      setView((current) => {
+        const next = Math.min(
+          MAX_TEXTURE_ZOOM,
+          Math.max(1, current.scale * Math.exp(-delta * 0.0015)),
+        );
+        if (Math.abs(next - current.scale) < 0.0001) return current;
+        if (next <= 1.0001) return { scale: 1, x: 0, y: 0 };
+        return { ...current, scale: next };
+      });
+    };
+
+    stage.addEventListener('wheel', onWheel, { passive: false });
+    return () => stage.removeEventListener('wheel', onWheel);
+  }, [state.status]);
+
+  const ready = state.status === 'ready';
+  const zoomed = view.scale > 1.001;
+  const zoomPercent = Math.round(view.scale * 100);
+  const resetView = () => setView({ scale: 1, x: 0, y: 0 });
+
+  const endDrag = (event) => {
+    if (dragRef.current === null) return;
+    if (event?.pointerId !== undefined
+      && event.currentTarget?.hasPointerCapture?.(event.pointerId) === true) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+    setDragging(false);
+  };
+
+  const handlePointerDown = (event) => {
+    if (!zoomed || event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: view.x,
+      y: view.y,
+    };
+    setDragging(true);
+  };
+
+  const handlePointerMove = (event) => {
+    const drag = dragRef.current;
+    if (drag === null || drag.pointerId !== event.pointerId) return;
+    setView((current) => ({
+      ...current,
+      x: drag.x + event.clientX - drag.startX,
+      y: drag.y + event.clientY - drag.startY,
+    }));
+  };
+
   return h('div', {
     className: 'dsh3dv-root',
     'data-dsh3d-texture': '',
     'data-dsh3d-format': format,
   },
   h('style', null, CSS),
-  h('div', { className: 'dsh3dv-texture-stage' },
-    h('canvas', {
-      ref: canvasRef,
-      className: 'dsh3dv-texture-image',
-      role: 'img',
-      'aria-label': `${format.toUpperCase()} texture`,
-    })),
+  h('div', {
+    ref: stageRef,
+    className: 'dsh3dv-texture-stage',
+    'data-zoomed': zoomed ? 'true' : undefined,
+    'data-dragging': dragging ? 'true' : undefined,
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: endDrag,
+    onPointerCancel: endDrag,
+    onLostPointerCapture: endDrag,
+    onDoubleClick: resetView,
+  },
+  h('canvas', {
+    ref: canvasRef,
+    className: 'dsh3dv-texture-image',
+    role: 'img',
+    'aria-label': `${format.toUpperCase()} texture`,
+    style: {
+      transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+    },
+  })),
   h('div', { className: 'dsh3dv-top' },
     h('span', { className: 'dsh3dv-badge' }, t(`${format}Badge`)),
-    state.status === 'ready'
-      ? h('span', { className: 'dsh3dv-badge' },
-        `${state.width} × ${state.height} · ${state.bits}-bit`)
-      : null),
+    h('div', { className: 'dsh3dv-texture-actions' },
+      ready
+        ? h('span', { className: 'dsh3dv-badge' },
+          `${state.width} × ${state.height} · ${state.bits}-bit${zoomed ? ` · ${zoomPercent}%` : ''}`)
+        : null,
+      ready && zoomed
+        ? h('button', {
+          type: 'button',
+          className: 'dsh3dv-texture-fit',
+          onClick: resetView,
+          title: t('textureFit'),
+          'aria-label': t('textureFit'),
+        }, t('textureFit'))
+        : null)),
   h(StatusOverlay, {
     status: state.status,
     failure: state.failure,

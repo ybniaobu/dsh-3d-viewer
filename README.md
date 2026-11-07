@@ -75,7 +75,7 @@ Notes:
 - **OBJ**: a missing MTL falls back to default materials; missing textures use white placeholders.
 - **glTF / GLB**: resources shared by several primitives are read once.
 - **STL**: no materials or animations.
-- **Textures**: PNG/JPEG/WebP/GIF use browser decoding; TGA, EXR, and HDR decode through lazy texture chunks. EXR/HDR keep their linear HDR data.
+- **Textures**: PNG/JPEG/WebP/GIF use browser decoding; TGA, EXR, and HDR decode through lazy texture chunks. EXR/HDR keep their linear HDR data. Standalone texture previews zoom with the mouse wheel, pan by dragging when zoomed, and reset with the **Fit** button or a double-click.
 
 ### Not supported
 
@@ -114,7 +114,7 @@ Notes:
 | --- | --- |
 | `src/ui/model-viewer.js` | Viewer container: load lifecycle, settings, and status |
 | `src/ui/viewer-surface.js` | Pure presentation: toolbar, stats, animation bar, and overlay |
-| `src/ui/texture-viewer.js` | Standalone TGA/EXR/HDR texture preview and tone mapping |
+| `src/ui/texture-viewer.js` | Standalone TGA/EXR/HDR texture preview, tone mapping, wheel zoom, and pan |
 | `src/ui/animation-bar.js` | Animation transport and progress updates |
 | `src/ui/chrome.js` | Toolbar, material/environment popovers, and stats panel |
 | `src/ui/primitives.js` | Shared small UI primitives |
