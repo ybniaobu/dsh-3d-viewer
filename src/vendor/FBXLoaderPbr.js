@@ -1150,8 +1150,8 @@ class FBXTreeParser {
 
 			if ( upAxis === 2 ) {
 
-				console.warn( 'THREE.FBXLoader: You are loading an asset with a Z-UP coordinate system. The loader just rotates the asset to transform it into Y-UP. The vertex data are not converted.' );
-
+				// The loader rotates the graph into the preview's Y-up scene.
+				// This is the supported path, so it is not a warning.
 				sceneGraph.rotation.set( - Math.PI / 2, 0, 0 );
 
 			}
