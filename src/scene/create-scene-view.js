@@ -14,7 +14,8 @@ import { rendererPool } from './renderer-pool.js';
 
 const MAX_PIXEL_RATIO = 2;
 const AUTO_ROTATE_SECONDS = 15;
-const AUTO_ROTATE_RADIANS_PER_SECOND = (Math.PI * 2) / AUTO_ROTATE_SECONDS;
+// Negative theta moves the camera counter-clockwise when viewed from above.
+const AUTO_ROTATE_RADIANS_PER_SECOND = -(Math.PI * 2) / AUTO_ROTATE_SECONDS;
 
 /** Device pixel ratio, clamped so 4K/5K displays do not quadruple the cost. */
 function readPixelRatio() {
