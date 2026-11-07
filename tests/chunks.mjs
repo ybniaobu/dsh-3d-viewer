@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { disposeObject } from '../src/model.js';
 import * as THREE_BRIDGE from '../src/loaders/three-bridge.js';
+import { createWorkspaceAssetLoader } from '../src/loaders/workspace.js';
 import { textureImageData } from '../src/ui/texture-viewer.js';
 
 globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
@@ -109,6 +110,26 @@ assert.equal(tgaPreview.width, 2);
 assert.equal(tgaPreview.height, 2);
 assert.equal(tgaPreview.data.length, 16);
 tgaTexture.dispose();
+
+// The workspace loader must return a DataTexture for raw formats; a plain
+// Texture with a data image is uploaded as an image element and renders gray.
+globalThis.__DSH3DV_REQUIRE__ = {
+  async: async (spec) => {
+    const match = /tex-(tga|exr|hdr)\.js$/u.exec(spec);
+    if (match === null) throw new Error(`unexpected texture chunk: ${spec}`);
+    return textures[`tex-${match[1]}`];
+  },
+};
+const assets = createWorkspaceAssetLoader({
+  readFile: async () => ({ ok: true, value: { data: tga } }),
+  onWarn: () => {},
+});
+const workspaceTga = assets.manager.getHandler('test.tga').load('test.tga');
+await assets.settle();
+assert.equal(workspaceTga.isDataTexture, true);
+assert.equal(workspaceTga.image.width, 2);
+workspaceTga.dispose();
+assets.dispose();
 
 // 4x4 flat Radiance RGBE (width < 8 uses the old non-RLE scanline format).
 const hdrWidth = 4;

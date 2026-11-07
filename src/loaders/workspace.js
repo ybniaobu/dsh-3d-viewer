@@ -1,4 +1,13 @@
-import { Cache, ImageLoader, Loader, LoadingManager, Texture } from 'three';
+import {
+  Cache,
+  DataTexture,
+  ImageLoader,
+  Loader,
+  LoadingManager,
+  RGBAFormat,
+  Texture,
+  UnsignedByteType,
+} from 'three';
 import {
   ABSOLUTE_PATH,
   abortError,
@@ -230,7 +239,13 @@ class WorkspaceTextureLoader extends Loader {
   }
 
   load(url, onLoad, onProgress, onError) {
-    const texture = new Texture();
+    const localPath = isLocalPath(url) ? decodeLocalPath(url) : null;
+    const localFormat = localPath === null ? null : textureFormatOf(localPath);
+    // TGA/EXR/HDR decode to raw pixel data; the uploader only takes the
+    // DataTexture path for those, so the placeholder must be one from the start.
+    const texture = localFormat === null
+      ? new Texture()
+      : new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, RGBAFormat, UnsignedByteType);
     texture.name = url;
 
     const task = (async () => {
@@ -241,8 +256,8 @@ class WorkspaceTextureLoader extends Loader {
         }
 
         let imageUrl = url;
-        if (isLocalPath(url)) {
-          const path = decodeLocalPath(url);
+        if (localPath !== null) {
+          const path = localPath;
           const result = await readWithBasenameFallback(this.readFile, path);
           if (result === undefined || result.ok !== true) {
             throw new Error(result?.error?.message ?? `Could not read texture ${url}`);
@@ -251,9 +266,8 @@ class WorkspaceTextureLoader extends Loader {
             throw abortError('Texture loading was cancelled.');
           }
 
-          const format = textureFormatOf(path);
-          if (format !== null) {
-            const decoded = await decodeWorkspaceTexture(format, result.value.data);
+          if (localFormat !== null) {
+            const decoded = await decodeWorkspaceTexture(localFormat, result.value.data);
             if (this.signal?.aborted === true || this.disposed?.() === true) {
               decoded.dispose();
               throw abortError('Texture loading was cancelled.');
@@ -277,10 +291,15 @@ class WorkspaceTextureLoader extends Loader {
         }
         if (this.signal?.aborted !== true && this.disposed?.() !== true) {
           this.onWarn?.(`[dsh-3d-viewer] Could not load texture "${url}": ${String(error)}`);
-          try {
-            await loadImage(texture, WHITE_PIXEL, this.signal);
-          } catch {
-            // Keep the empty placeholder when even the fallback cannot decode.
+          if (localFormat !== null) {
+            texture.image = { data: new Uint8Array([255, 255, 255, 255]), width: 1, height: 1 };
+            texture.needsUpdate = true;
+          } else {
+            try {
+              await loadImage(texture, WHITE_PIXEL, this.signal);
+            } catch {
+              // Keep the empty placeholder when even the fallback cannot decode.
+            }
           }
           onLoad?.(texture);
           onError?.(error);
