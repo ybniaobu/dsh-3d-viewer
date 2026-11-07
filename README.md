@@ -19,7 +19,7 @@ Distributed as the npm package `dsh-3d-viewer`. The prebuilt `dist/client.js` co
 
 1. Open DSH Desktop and choose **Plugins** in the sidebar.
 2. Click **Add plugin** → **Install a third-party plugin**.
-3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.1.1` to pin a version).
+3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.2.0` to pin a version).
 4. Set **Registry** to the official npm registry (npmmirror also works in mainland China).
 5. Click **Install**, then confirm **3D Viewer** is **On** under **Installed plugins**.
 6. Open a model or texture from any session. If no preview appears, refresh the page; if it still does not, restart DSH.
@@ -77,6 +77,22 @@ Notes:
 - **STL**: no materials or animations.
 - **Textures**: PNG/JPEG/WebP/GIF use browser decoding; TGA, EXR, and HDR decode through lazy texture chunks. EXR/HDR keep their linear HDR data. Standalone texture previews zoom with the mouse wheel, pan by dragging when zoomed, reset with the **Fit** button or a double-click, and can be flipped vertically when a source stores rows bottom-up.
 
+### Texture previews
+
+TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders are used for external FBX/OBJ texture references.
+
+| Format | Decoded data | Preview behavior |
+| --- | --- | --- |
+| **TGA** | 8-bit RGBA (RGBA8) | Pixel data is shown directly; alpha is preserved. |
+| **EXR** | 16-bit half float or 32-bit float, 1–4 channels | Linear HDR data is tone-mapped to SDR for display. |
+| **HDR** | Radiance RGBE, decoded to 16-bit half float by default | Linear HDR data is tone-mapped to SDR for display. |
+
+- EXR/HDR previews use exposure 1 and Reinhard tone mapping before sRGB output; material rendering keeps the linear values.
+- The metadata badge shows dimensions, per-channel bit depth, and the current zoom percentage.
+- Direct previews support wheel zoom, drag-to-pan when zoomed, **Fit** / double-click reset, and **Flip Y** for bottom-up sources.
+- Decoder chunks are fetched only on first use; opening a PNG/JPEG or a model that never uses TGA/EXR/HDR does not download them.
+- DDS, KTX2, and PVR still fall back to the white placeholder.
+
 ### Not supported
 
 - glTF extensions that need extra decoders: Draco, Meshopt, KTX2.
@@ -93,7 +109,7 @@ Notes:
 | `cordis.patch.yml` | Bundle patch that inserts the plugin row |
 | `package.json` | DSH manifest, exports, engines, and package file list |
 | `dist/client.js` | Prebuilt client entry served through `exports["./client"]` |
-| `dist/client.*.js` | Lazy FBX/OBJ/glTF/STL loader chunks, colocated with the entry |
+| `dist/client.*.js` | Lazy format and texture decoder chunks, colocated with the entry |
 | `icon.svg` | Plugin icon required at the package root |
 | `locale/*.json` | English/Chinese UI dictionaries |
 | `assets/hdri/` | Packaged Poly Haven CC0 HDRIs served by the host route |

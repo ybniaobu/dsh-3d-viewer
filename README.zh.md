@@ -19,7 +19,7 @@
 
 1. 打开 DSH Desktop，点击侧边栏的 **Plugins（插件）**。
 2. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
-3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.1.1`。
+3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.2.0`。
 4. **Registry** 选择 npm 官方源（国内也可用 npmmirror）。
 5. 点击 **Install**，在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
 6. 回到会话打开模型或纹理。若没有出现预览，先刷新页面；仍未出现时重启 DSH。
@@ -77,6 +77,22 @@
 - **STL**：没有材质和动画。
 - **贴图**：PNG/JPEG/WebP/GIF 走浏览器解码；TGA、EXR、HDR 走懒加载纹理 chunk，EXR/HDR 保留线性 HDR 数据。独立纹理预览支持滚轮缩放，放大后可拖拽平移，点 **适应窗口** 或双击复位；源文件按自下而上存储时可点 **垂直翻转**。
 
+### 纹理预览
+
+TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也用于 FBX/OBJ 的外部贴图引用。
+
+| 格式 | 解码数据 | 预览行为 |
+| --- | --- | --- |
+| **TGA** | 8-bit RGBA（RGBA8） | 直接显示像素数据，保留 alpha。 |
+| **EXR** | 16-bit half float 或 32-bit float，1–4 通道 | 线性 HDR 数据经色调映射后显示。 |
+| **HDR** | Radiance RGBE，默认解码为 16-bit half float | 线性 HDR 数据经色调映射后显示。 |
+
+- EXR/HDR 预览使用曝光 1 和 Reinhard 色调映射，再输出 sRGB；材质渲染仍使用线性值。
+- 元信息显示尺寸、每通道位深和当前缩放比例。
+- 独立预览支持滚轮缩放、放大后拖拽平移、**适应窗口** / 双击复位，以及 **垂直翻转**。
+- 解码 chunk 只在首次使用时加载；打开 PNG/JPEG 或不使用 TGA/EXR/HDR 的模型不会下载它们。
+- DDS、KTX2、PVR 仍回退为白色占位。
+
 ### 暂不支持
 
 - 需要额外解码器的 glTF 扩展：Draco、Meshopt、KTX2。
@@ -93,7 +109,7 @@
 | `cordis.patch.yml` | 插入插件行的 bundle patch |
 | `package.json` | DSH manifest、exports、engines 和打包文件列表 |
 | `dist/client.js` | 预构建客户端入口，经 `exports["./client"]` 提供 |
-| `dist/client.*.js` | FBX/OBJ/glTF/STL 懒加载 chunk，与入口同目录 |
+| `dist/client.*.js` | FBX/OBJ/glTF/STL 与 TGA/EXR/HDR 懒加载 chunk，与入口同目录 |
 | `icon.svg` | DSH 元信息要求的包根图标 |
 | `locale/*.json` | 中英文 UI 字典 |
 | `assets/hdri/` | 由宿主路由提供的 Poly Haven CC0 HDRI |
