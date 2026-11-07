@@ -45,27 +45,12 @@ function clamp01(value) {
 }
 
 /**
- * @param {ImageData} image Source pixels.
- * @returns {ImageData} Vertically flipped pixels.
- */
-function flipImageData(image) {
-  const rowLength = image.width * 4;
-  const flipped = new Uint8ClampedArray(image.data.length);
-  for (let y = 0; y < image.height; y += 1) {
-    const source = (image.height - 1 - y) * rowLength;
-    flipped.set(image.data.subarray(source, source + rowLength), y * rowLength);
-  }
-  return new ImageData(flipped, image.width, image.height);
-}
-
-/**
  * Turn a decoded texture into canvas-ready RGBA pixels.
  *
  * @param {import('three').Texture} texture Decoded TGA/EXR/HDR texture.
- * @param {boolean} [flipY] Flip the image vertically for display.
  * @returns {ImageData} RGBA image.
  */
-function imageDataFor(texture, flipY = false) {
+function imageDataFor(texture) {
   const image = texture.image;
   const width = image?.width;
   const height = image?.height;
@@ -81,12 +66,11 @@ function imageDataFor(texture, flipY = false) {
   const byteData = data instanceof Uint8Array || data instanceof Uint8ClampedArray;
 
   if (byteData && !hdr && channels === 4) {
-    const direct = new ImageData(
+    return new ImageData(
       new Uint8ClampedArray(data.subarray(0, pixels * 4)),
       width,
       height,
     );
-    return flipY ? flipImageData(direct) : direct;
   }
 
   const out = new Uint8ClampedArray(pixels * 4);
@@ -127,8 +111,7 @@ function imageDataFor(texture, flipY = false) {
     out[target + 3] = clamp01(alpha) * 255;
   }
 
-  const imageData = new ImageData(out, width, height);
-  return flipY ? flipImageData(imageData) : imageData;
+  return new ImageData(out, width, height);
 }
 
 /**
@@ -136,11 +119,10 @@ function imageDataFor(texture, flipY = false) {
  * unit test, which supplies a minimal ImageData implementation.
  *
  * @param {import('three').Texture} texture Decoded texture.
- * @param {boolean} [flipY] Flip the image vertically.
  * @returns {ImageData} RGBA image.
  */
-export function textureImageData(texture, flipY = false) {
-  return imageDataFor(texture, flipY);
+export function textureImageData(texture) {
+  return imageDataFor(texture);
 }
 
 /**
@@ -155,27 +137,73 @@ function bitDepthFor(texture) {
 }
 
 /**
+ * Prepare an off-screen canvas with the raw image so vertical flipping can use
+ * a canvas transform instead of copying the whole RGBA buffer.
+ *
+ * @param {ImageData} image Source pixels.
+ * @param {{ current: HTMLCanvasElement | null }} sourceCanvasRef Off-screen canvas ref.
+ * @param {{ current: ImageData | null }} sourceImageRef Last uploaded image ref.
+ * @returns {HTMLCanvasElement} Off-screen canvas.
+ */
+function ensureSourceCanvas(image, sourceCanvasRef, sourceImageRef) {
+  let source = sourceCanvasRef.current;
+  if (source === null || source === undefined) {
+    source = document.createElement('canvas');
+    sourceCanvasRef.current = source;
+    sourceImageRef.current = null;
+  }
+  if (source.width !== image.width || source.height !== image.height) {
+    source.width = image.width;
+    source.height = image.height;
+    sourceImageRef.current = null;
+  }
+  if (sourceImageRef.current !== image) {
+    const sourceContext = source.getContext('2d');
+    if (sourceContext === null) throw new Error('The texture preview canvas is unavailable.');
+    sourceContext.putImageData(image, 0, 0);
+    sourceImageRef.current = image;
+  }
+  return source;
+}
+
+/**
  * @param {HTMLCanvasElement | null} canvas Target canvas.
  * @param {ImageData} image Pixels to draw.
+ * @param {boolean} [flipY] Draw with a vertical canvas transform.
+ * @param {{ current: HTMLCanvasElement | null }} [sourceCanvasRef] Off-screen canvas ref.
+ * @param {{ current: ImageData | null }} [sourceImageRef] Last uploaded image ref.
  * @returns {void}
  */
-function drawImageData(canvas, image) {
+function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImageRef) {
   if (canvas === null) throw new Error('The texture preview canvas is unavailable.');
   canvas.width = image.width;
   canvas.height = image.height;
   const context = canvas.getContext('2d');
   if (context === null) throw new Error('The 2D canvas context is unavailable.');
-  context.putImageData(image, 0, 0);
+
+  if (!flipY) {
+    context.putImageData(image, 0, 0);
+    return;
+  }
+  if (sourceCanvasRef === undefined || sourceImageRef === undefined) {
+    throw new Error('The texture preview flip canvas is unavailable.');
+  }
+
+  const source = ensureSourceCanvas(image, sourceCanvasRef, sourceImageRef);
+  context.save();
+  context.translate(0, image.height);
+  context.scale(1, -1);
+  context.drawImage(source, 0, 0);
+  context.restore();
 }
 
 /**
  * @param {HTMLCanvasElement | null} canvas Target canvas.
  * @param {import('three').Texture} texture Decoded texture.
- * @param {boolean} [flipY] Flip the image vertically for display.
  * @returns {{ width: number, height: number, bits: number, image: ImageData }} Preview metadata.
  */
-function drawTexture(canvas, texture, flipY = false) {
-  const image = imageDataFor(texture, flipY);
+function drawTexture(canvas, texture) {
+  const image = imageDataFor(texture);
   drawImageData(canvas, image);
   return {
     width: image.width,
@@ -224,6 +252,8 @@ function TextureViewer(props) {
   const stageRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const imageRef = React.useRef(null);
+  const sourceCanvasRef = React.useRef(null);
+  const sourceImageRef = React.useRef(null);
   const loadBytesRef = React.useRef(typeof props.loadBytes === 'function' ? props.loadBytes : null);
   const addressRef = React.useRef(typeof props.resourceAddress === 'string' ? props.resourceAddress : null);
   const rendererRef = React.useRef(renderer);
@@ -241,6 +271,7 @@ function TextureViewer(props) {
       setView({ scale: 1, x: 0, y: 0 });
       setFlipY(false);
       imageRef.current = null;
+      sourceImageRef.current = null;
       try {
         let bytes = directData;
         let version;
@@ -266,9 +297,10 @@ function TextureViewer(props) {
           return;
         }
 
-        const info = drawTexture(canvasRef.current, texture, false);
+        const info = drawTexture(canvasRef.current, texture);
         texture.dispose();
         imageRef.current = info.image;
+        sourceImageRef.current = null;
         activeRenderer?.loaded?.(version);
         setView({ scale: 1, x: 0, y: 0 });
         setFlipY(false);
@@ -305,8 +337,13 @@ function TextureViewer(props) {
 
   React.useEffect(() => {
     if (state.status !== 'ready' || imageRef.current === null) return;
-    const image = flipY ? flipImageData(imageRef.current) : imageRef.current;
-    drawImageData(canvasRef.current, image);
+    drawImageData(
+      canvasRef.current,
+      imageRef.current,
+      flipY,
+      sourceCanvasRef,
+      sourceImageRef,
+    );
   }, [flipY, state.status]);
 
   React.useEffect(() => {

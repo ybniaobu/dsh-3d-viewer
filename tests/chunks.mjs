@@ -109,11 +109,6 @@ const tgaPreview = textureImageData(tgaTexture);
 assert.equal(tgaPreview.width, 2);
 assert.equal(tgaPreview.height, 2);
 assert.equal(tgaPreview.data.length, 16);
-const tgaFlipped = textureImageData(tgaTexture, true);
-assert.notDeepEqual(
-  Array.from(tgaPreview.data.slice(0, 4)),
-  Array.from(tgaFlipped.data.slice(0, 4)),
-);
 tgaTexture.dispose();
 
 // The workspace loader must return a DataTexture for raw formats; a plain
