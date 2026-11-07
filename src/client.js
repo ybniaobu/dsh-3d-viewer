@@ -354,6 +354,15 @@ async function readDocumentBytes(ctx, address, signal) {
       ? await readBySize(workspaceFiles, parsed.sessionId, parsed.path, info.bytes, signal)
       : await readWithoutStat(workspaceFiles, parsed.sessionId, parsed.path, signal);
 
+    if (result?.ok === true
+      && info?.version !== undefined
+      && result.value?.version !== undefined
+      && result.value.version !== info.version) {
+      // The size used for the range plan belongs to the stat version. If the
+      // file changed in between, a growing file would otherwise cache a
+      // truncated buffer under the new version.
+      return changedFailure();
+    }
     if (result?.ok === true && result.value?.version !== undefined) {
       cacheSet(key, result.value.version, result.value.data);
     }

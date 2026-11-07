@@ -203,6 +203,33 @@ assert.equal(cached.value.data.length, largeFile.length);
 assert.equal(statCalls, 2, 'the cached read still checks the file version');
 assert.equal(rangeCalls, firstRangeCalls, 'a version hit must not read the file again');
 
+const originalStat = remote.workspaceFiles.stat;
+const originalReadBytes = remote.workspaceFiles.readBytes;
+try {
+  remote.workspaceFiles.stat = async () => ({
+    ok: true,
+    value: { version: 'v1', bytes: 3 },
+  });
+  remote.workspaceFiles.readBytes = async () => ({
+    ok: true,
+    value: {
+      data: new Uint8Array([1, 2, 3]),
+      version: 'v2',
+      eof: true,
+      bytes: 5,
+    },
+  });
+  const race = await fbxSlot.options.inject().loadBytes(
+    'dsh-resource://file/session/s1/samples/source/race.fbx',
+    new AbortController().signal,
+  );
+  assert.equal(race.ok, false, 'a changed file must not populate the cache');
+  assert.equal(race.error.code, 'workspace-file/changed');
+} finally {
+  remote.workspaceFiles.stat = originalStat;
+  remote.workspaceFiles.readBytes = originalReadBytes;
+}
+
 console.log('Registration verified:', {
   implementations: registration.definitions.map((definition) => ({
     id: definition.id,
