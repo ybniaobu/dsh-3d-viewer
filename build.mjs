@@ -52,7 +52,7 @@ console.log(`Built dist/client.js (${Buffer.byteLength(wrapped)} bytes) for ${pk
 // Format loaders are package-local chunks. They are self-contained CJS and
 // receive the entry bundle's Three instance through a tiny require shim, so a
 // format is only downloaded when it is first opened.
-const CHUNK_NAMES = ['fbx', 'obj', 'gltf', 'stl'];
+const CHUNK_NAMES = ['fbx', 'obj', 'gltf', 'stl', 'tex-tga', 'tex-exr'];
 for (const name of CHUNK_NAMES) {
   const chunkBundle = resolve(root, `.build/chunk-${name}.cjs`);
   await esbuild.build({

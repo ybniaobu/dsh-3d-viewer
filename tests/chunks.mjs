@@ -14,9 +14,14 @@ const loaders = {
   gltf: 'loadGltfModel',
   stl: 'loadStlModel',
 };
+const textureLoaders = {
+  'tex-tga': 'decodeTga',
+  'tex-exr': 'decodeExr',
+};
 const loaded = {};
+const textures = {};
 
-for (const [name, exportName] of Object.entries(loaders)) {
+async function loadChunk(name, exportName) {
   const code = await readFile(new URL(`../dist/client.${name}.js`, import.meta.url), 'utf8');
   let registration;
   const window = {
@@ -36,7 +41,14 @@ for (const [name, exportName] of Object.entries(loaders)) {
     throw new Error(`unexpected synchronous require in ${name} chunk: ${id}`);
   });
   assert.equal(typeof exports[exportName], 'function', `${name} chunk must export ${exportName}`);
-  loaded[name] = exports;
+  return exports;
+}
+
+for (const [name, exportName] of Object.entries(loaders)) {
+  loaded[name] = await loadChunk(name, exportName);
+}
+for (const [name, exportName] of Object.entries(textureLoaders)) {
+  textures[name] = await loadChunk(name, exportName);
 }
 
 const stlPath = fileURLToPath(new URL('../samples/TestCube.stl', import.meta.url));
@@ -66,4 +78,26 @@ if (existsSync(fbxPath)) {
   disposeObject(fbx.object);
 }
 
-console.log('Lazy loader chunks verified:', Object.keys(loaders));
+// 2x2 uncompressed 24-bit TGA, enough to exercise the real TGALoader parse.
+const tga = new Uint8Array(18 + 2 * 2 * 3);
+tga[2] = 2;
+tga[12] = 2;
+tga[14] = 2;
+tga[16] = 24;
+const pixels = [[0, 0, 255], [0, 255, 0], [255, 0, 0], [255, 255, 255]];
+pixels.forEach(([b, g, r], index) => {
+  const offset = 18 + index * 3;
+  tga[offset] = b;
+  tga[offset + 1] = g;
+  tga[offset + 2] = r;
+});
+const tgaTexture = textures['tex-tga'].decodeTga(tga.buffer);
+assert.equal(tgaTexture.image.width, 2);
+assert.equal(tgaTexture.image.height, 2);
+assert.equal(tgaTexture.image.data.length, 16);
+tgaTexture.dispose();
+
+console.log('Lazy loader chunks verified:', {
+  formats: Object.keys(loaders),
+  textures: Object.keys(textureLoaders),
+});

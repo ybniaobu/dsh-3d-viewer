@@ -6,9 +6,8 @@ node_modules/
 jspm_packages/
 
 # Build output and caches
-# NOTE: client.js is the shipped runtime artifact; do not ignore it.
+# NOTE: dist/client.js and dist/client.*.js are shipped runtime artifacts; do not ignore them.
 .build/
-dist/
 coverage/
 .nyc_output/
 *.tsbuildinfo

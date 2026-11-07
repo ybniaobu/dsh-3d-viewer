@@ -5,8 +5,10 @@ import {
   decodeLocalPath,
   isLocalPath,
   mimeOf,
+  toArrayBuffer,
   warn,
 } from '../bytes.js';
+import { asyncChunk } from './chunk-require.js';
 
 const FILE_ADDRESS_PREFIX = 'dsh-resource://file/';
 // Any relative/absolute local path can be an MTL/FBX texture. Schemes are
@@ -21,6 +23,79 @@ export const WHITE_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAA
 
 /** Shared image decoder; a LoadingManager per texture would be wasteful. */
 const IMAGE_LOADER = new ImageLoader(new LoadingManager());
+
+/** Lazily fetched TGA/EXR decoder chunks. */
+const textureChunkPromises = new Map();
+
+/**
+ * @param {string} path Texture path.
+ * @returns {'tga' | 'exr' | null} Specialized decoder, if any.
+ */
+function textureFormatOf(path) {
+  const clean = String(path).split(/[?#]/, 1)[0].toLowerCase();
+  if (clean.endsWith('.tga')) return 'tga';
+  if (clean.endsWith('.exr')) return 'exr';
+  return null;
+}
+
+/**
+ * @param {string} format Texture format id.
+ * @returns {Promise<Record<string, unknown>>} Decoder chunk exports.
+ */
+function loadTextureChunk(format) {
+  const file = `./client.tex-${format}.js`;
+  let promise = textureChunkPromises.get(file);
+  if (promise === undefined) {
+    promise = asyncChunk(file);
+    textureChunkPromises.set(file, promise);
+    promise.catch(() => textureChunkPromises.delete(file));
+  }
+  return promise;
+}
+
+/**
+ * Decode a specialized texture through its lazy chunk.
+ *
+ * @param {'tga' | 'exr'} format Texture format.
+ * @param {Uint8Array | ArrayBuffer} data Complete bytes.
+ * @returns {Promise<Texture>} Decoded texture.
+ */
+async function decodeTexture(format, data) {
+  const module = await loadTextureChunk(format);
+  const decode = format === 'tga' ? module.decodeTga : module.decodeExr;
+  if (typeof decode !== 'function') {
+    throw new Error(`The ${format.toUpperCase()} decoder chunk is unavailable.`);
+  }
+  return decode(toArrayBuffer(data));
+}
+
+/**
+ * Copy a decoded DataTexture's uploadable fields into the placeholder that is
+ * already attached to a material.
+ *
+ * @param {Texture} target Placeholder texture.
+ * @param {Texture} source Decoded texture.
+ * @returns {void}
+ */
+function adoptTexture(target, source) {
+  target.image = source.image;
+  target.mipmaps = source.mipmaps;
+  target.mapping = source.mapping;
+  target.channel = source.channel;
+  target.format = source.format;
+  target.internalFormat = source.internalFormat;
+  target.type = source.type;
+  target.colorSpace = source.colorSpace;
+  target.flipY = source.flipY;
+  target.unpackAlignment = source.unpackAlignment;
+  target.minFilter = source.minFilter;
+  target.magFilter = source.magFilter;
+  target.generateMipmaps = source.generateMipmaps;
+  target.anisotropy = source.anisotropy;
+  target.userData = { ...source.userData };
+  target.needsUpdate = true;
+  source.dispose();
+}
 
 /**
  * Parse a `dsh-resource://file/...` address into its session and path.
@@ -172,6 +247,18 @@ class WorkspaceTextureLoader extends Loader {
           }
           if (this.signal?.aborted === true || this.disposed?.() === true) {
             throw abortError('Texture loading was cancelled.');
+          }
+
+          const format = textureFormatOf(path);
+          if (format !== null) {
+            const decoded = await decodeTexture(format, result.value.data);
+            if (this.signal?.aborted === true || this.disposed?.() === true) {
+              decoded.dispose();
+              throw abortError('Texture loading was cancelled.');
+            }
+            adoptTexture(texture, decoded);
+            onLoad?.(texture);
+            return;
           }
 
           blobUrl = URL.createObjectURL(new Blob([result.value.data], { type: mimeOf(path) }));

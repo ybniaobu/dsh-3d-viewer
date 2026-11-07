@@ -74,11 +74,12 @@ Notes:
 - **OBJ**: a missing MTL falls back to default materials; missing textures use white placeholders.
 - **glTF / GLB**: resources shared by several primitives are read once.
 - **STL**: no materials or animations.
+- **Textures**: PNG/JPEG/WebP/GIF use browser decoding; TGA and EXR decode through lazy texture chunks. EXR keeps its linear HDR data.
 
 ### Not supported
 
 - glTF extensions that need extra decoders: Draco, Meshopt, KTX2.
-- Texture formats DSH cannot decode directly: TGA, DDS, EXR, and similar (shown as white placeholders).
+- Texture formats without a bundled decoder: DDS, KTX2, PVR, and similar (shown as white placeholders).
 - MTL `map_Ks` / `map_Ns` are not fully mapped to PBR yet (`Kd/Ks/Ns/d` and diffuse/normal/bump/emissive/alpha/displacement textures are supported).
 
 ## Code structure
@@ -146,10 +147,10 @@ Notes:
 | `src/loaders/obj.js` | OBJ parsing and MTL/texture resolution |
 | `src/loaders/stl.js` | STL parsing |
 | `src/loaders/gltf.js` | glTF/GLB buffers, textures, animations, and cleanup |
-| `src/loaders/workspace.js` | Resource addresses, workspace reads, and texture fallback |
+| `src/loaders/workspace.js` | Resource addresses, workspace reads, TGA/EXR dispatch, and texture fallback |
 | `src/loaders/chunk-require.js` | `require.async` bridge for DSH package chunks |
 | `src/loaders/three-bridge.js` | Curated Three exports shared with lazy chunks |
-| `src/loaders/chunks/*.js` | One entry per lazy format chunk |
+| `src/loaders/chunks/*.js` | One entry per lazy format or texture chunk |
 | `src/vendor/fbx-loader-pbr.js` | Vendored Three FBXLoader with PBR custom attributes |
 
 ### Build and tests
