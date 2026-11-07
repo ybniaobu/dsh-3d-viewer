@@ -17,7 +17,7 @@ const loaders = {
 const loaded = {};
 
 for (const [name, exportName] of Object.entries(loaders)) {
-  const code = await readFile(new URL(`../client.${name}.js`, import.meta.url), 'utf8');
+  const code = await readFile(new URL(`../dist/client.${name}.js`, import.meta.url), 'utf8');
   let registration;
   const window = {
     __ModuleLoader__: {

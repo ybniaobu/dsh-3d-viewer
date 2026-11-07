@@ -13,7 +13,7 @@
 
 ## 安装与启用
 
-插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `client.js` 包含查看器与 Three.js 核心；各格式 Loader 是包内懒加载 chunk，只在首次打开该格式时加载。四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
+插件通过 npm 包 `dsh-3d-viewer` 分发。包内 `dist/client.js` 包含查看器与 Three.js 核心；各格式 Loader 是包内懒加载 chunk，只在首次打开该格式时加载。四张 HDRI 以文件形式随包分发，由一段只读的宿主路由从本机 DSH 服务器提供，运行时不需联网，也不需 Node.js 或 npm。React 由 DSH 提供。
 
 ### 从 npm 安装（推荐）
 
@@ -30,7 +30,7 @@
 
 适合离线或内网分发。
 
-1. 把插件目录解压到任意位置，目录需包含 `package.json`、`client.js`、`index.js`、`cordis.patch.yml` 和 `assets/hdri/` 目录。
+1. 把插件目录解压到任意位置，目录需包含 `package.json`、`dist/client.js` 及其 chunks、`index.js`、`cordis.patch.yml` 和 `assets/hdri/` 目录。
 2. 打开 DSH Desktop，点击侧边栏的 **Plugins（插件）**。
 3. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
 4. 填入插件目录的绝对路径（例如 `F:\plugins\dsh-3d-viewer`），点击 **Install**。
@@ -87,6 +87,7 @@
 | --- | --- |
 | `index.js` | 宿主端：注册只读的 `/dsh-3d-viewer/hdri` 路由，提供包内 HDRI 文件 |
 | `src/client.js` | 插件入口；按格式注册 document preview 与 Sidebar slot |
+| `dist/client.js` + `dist/client.*.js` | 预构建的 DSH 客户端入口与懒加载格式 chunk |
 | `src/formats.js` | 格式注册表：id、扩展名、标题/徽标文案和格式归一化 |
 | `src/bytes.js` | 共用的字节、文本、路径、MIME、base64 辅助函数与取消错误 |
 | `src/ui/model-viewer.js` | 渲染体容器，管理加载/错误状态、格式绑定与场景生命周期 |
@@ -104,7 +105,7 @@
 | `src/loaders/model-loader.js` | 懒加载格式 chunk 的分派，以及 FBX / OBJ / glTF / GLB / STL 异步加载 |
 | `src/loaders/fbx.js`、`obj.js`、`stl.js` | 各格式的解析、sidecar 解析与加载 |
 | `src/loaders/gltf.js` | glTF/GLB 外部 buffer/贴图预取（按资源去重）、动画挂载和资源清理 |
-| `src/loaders/chunks/*.js` | 与 `client.js` 并列产出的懒加载格式 chunk 入口 |
+| `src/loaders/chunks/*.js` | 与 `dist/client.js` 并列产出的懒加载格式 chunk 入口 |
 | `src/model.js` | 模型统计、内嵌节点剥离和资源释放 |
 | `src/vendor/fbx-loader-pbr.js` | vendored Three.js FBXLoader，额外读取金属度/粗糙度自定义属性 |
 | `tests/run.mjs` | 测试入口：每个 `tests/*.mjs` 都在独立进程中运行 |

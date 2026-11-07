@@ -18,7 +18,7 @@ const window = {
   },
 };
 
-const bundle = await readFile(new URL('../client.js', import.meta.url), 'utf8');
+const bundle = await readFile(new URL('../dist/client.js', import.meta.url), 'utf8');
 new Function('window', bundle)(window);
 assert.equal(entry.id, 'dsh-3d-viewer');
 

@@ -13,7 +13,7 @@ Preview FBX, OBJ, glTF, GLB, and STL models from the current session's workspace
 
 ## Installation and enabling
 
-Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` contains the viewer and Three.js core; each format loader is a package-local lazy chunk fetched only when that format is first opened. The four HDRI files ship in the package and are served by a small read-only host route on the local DSH server, so no network access is needed at runtime. React comes from DSH.
+Distributed as the npm package `dsh-3d-viewer`. The prebuilt `dist/client.js` contains the viewer and Three.js core; each format loader is a package-local lazy chunk fetched only when that format is first opened. The four HDRI files ship in the package and are served by a small read-only host route on the local DSH server, so no network access is needed at runtime. React comes from DSH.
 
 ### Install from npm (recommended)
 
@@ -30,7 +30,7 @@ Distributed as the npm package `dsh-3d-viewer`. The prebuilt `client.js` contain
 
 Use this for offline or intranet distribution.
 
-1. Unpack the plugin directory anywhere; it must contain `package.json`, `client.js`, `index.js`, `cordis.patch.yml`, and the `assets/hdri/` directory.
+1. Unpack the plugin directory anywhere; it must contain `package.json`, `dist/client.js` plus its chunks, `index.js`, `cordis.patch.yml`, and the `assets/hdri/` directory.
 2. Open DSH Desktop and choose **Plugins** in the sidebar.
 3. Click **Add plugin** → **Install a third-party plugin**.
 4. Enter the directory's absolute path (for example `F:\plugins\dsh-3d-viewer`) and click **Install**.
@@ -87,6 +87,7 @@ Notes:
 | --- | --- |
 | `index.js` | Host half: registers the read-only `/dsh-3d-viewer/hdri` route that serves the packaged HDRIs |
 | `src/client.js` | Plugin entry; registers document previews and Sidebar slots per format |
+| `dist/client.js` + `dist/client.*.js` | Prebuilt DSH client entry and lazy format chunks |
 | `src/formats.js` | Format registry: ids, extensions, title/badge keys, and format normalization |
 | `src/bytes.js` | Shared byte, text, path, MIME, and base64 helpers plus the cancellation error |
 | `src/ui/model-viewer.js` | Viewer container: loading/error state, format binding, and scene lifecycle |
@@ -104,7 +105,7 @@ Notes:
 | `src/loaders/model-loader.js` | Lazy format-chunk dispatch and async FBX / OBJ / glTF / GLB / STL loading |
 | `src/loaders/fbx.js`, `obj.js`, `stl.js` | Per-format parsing, sidecar resolution, and loading |
 | `src/loaders/gltf.js` | glTF/GLB external buffer/texture prefetch (deduplicated by resource), animation wiring, and cleanup |
-| `src/loaders/chunks/*.js` | One entry per lazy format chunk emitted beside `client.js` |
+| `src/loaders/chunks/*.js` | One entry per lazy format chunk emitted beside `dist/client.js` |
 | `src/model.js` | Model stats, embedded-node stripping, and resource disposal |
 | `src/vendor/fbx-loader-pbr.js` | Vendored Three.js FBXLoader with metalness/roughness custom-attribute support |
 | `tests/run.mjs` | Test entry; each `tests/*.mjs` runs in its own process |

@@ -42,9 +42,9 @@ jobs:
         if: steps.check.outputs.exists == 'false'
         run: |
           npm run build
-          if [ -n "$(git status --porcelain -- client.js client.*.js)" ]; then
-            git status --short -- client.js client.*.js
-            echo "::error::client.js or a format chunk is stale; run 'npm run build' and commit the result before releasing."
+          if [ -n "$(git status --porcelain -- dist/client.js dist/client.*.js)" ]; then
+            git status --short -- dist/client.js dist/client.*.js
+            echo "::error::dist/client.js or a format chunk is stale; run 'npm run build' and commit the result before releasing."
             exit 1
           fi
 

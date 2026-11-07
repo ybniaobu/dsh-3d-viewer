@@ -6,8 +6,10 @@ import esbuild from 'esbuild';
 const root = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
 const bundlePath = resolve(root, '.build/client.bundle.cjs');
+const distDir = resolve(root, 'dist');
 
 await mkdir(dirname(bundlePath), { recursive: true });
+await mkdir(distDir, { recursive: true });
 
 // Use the JS API rather than node_modules/esbuild/bin/esbuild: that path is a
 // JS shim on Windows but the native binary on Linux, so spawning it with node
@@ -44,8 +46,8 @@ ${code}
 });
 `;
 
-await writeFile(resolve(root, 'client.js'), wrapped);
-console.log(`Built client.js (${Buffer.byteLength(wrapped)} bytes) for ${pkg.name}.`);
+await writeFile(resolve(distDir, 'client.js'), wrapped);
+console.log(`Built dist/client.js (${Buffer.byteLength(wrapped)} bytes) for ${pkg.name}.`);
 
 // Format loaders are package-local chunks. They are self-contained CJS and
 // receive the entry bundle's Three instance through a tiny require shim, so a
@@ -92,6 +94,6 @@ ${chunkCode}
   },
 });
 `;
-  await writeFile(resolve(root, chunkName), chunkWrapped);
-  console.log(`Built ${chunkName} (${Buffer.byteLength(chunkWrapped)} bytes) for ${pkg.name}.`);
+  await writeFile(resolve(distDir, chunkName), chunkWrapped);
+  console.log(`Built dist/${chunkName} (${Buffer.byteLength(chunkWrapped)} bytes) for ${pkg.name}.`);
 }
