@@ -35,6 +35,23 @@ function loadChunk(file) {
 }
 
 /**
+ * Start fetching a format chunk while the root file is still being read.
+ *
+ * @param {string} format Document format.
+ * @returns {void}
+ */
+export function preloadModelFormat(format) {
+  const chunk = CHUNKS[format];
+  if (chunk === undefined) return;
+  try {
+    // The actual load reports failures; preloading is best-effort.
+    void loadChunk(chunk.file).catch(() => {});
+  } catch {
+    // A synchronously unavailable module loader is reported by loadModelBytes.
+  }
+}
+
+/**
  * Load one registered model format through its package-local chunk.
  *
  * @param {Uint8Array | ArrayBuffer | string} data Complete file bytes.

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { isGlbAddress, normalizeFormat } from '../formats.js';
-import { loadModelBytes } from '../loaders/model-loader.js';
+import { loadModelBytes, preloadModelFormat } from '../loaders/model-loader.js';
 import { collectModelStats, disposeObject } from '../model.js';
 import { createSceneView } from '../scene/createSceneView.js';
 import { prefetchEnvironment } from '../scene/environment.js';
@@ -118,6 +118,10 @@ function ModelViewer(props) {
     let view = null;
     let assets = null;
     const controller = new AbortController();
+
+    // Start the format chunk while the root file is read; the parse step then
+    // finds the chunk promise already settled.
+    preloadModelFormat(format);
 
     // Overlap the HDRI fetch with the model read and parse; the PMREM build
     // then starts from bytes that are already in memory.
@@ -271,14 +275,14 @@ function ModelViewer(props) {
       }
     };
 
-    const timer = setTimeout(() => {
-      void run();
-    }, 16);
+    // The initial loading surface is already committed and painted before this
+    // effect runs; starting immediately saves a timer turn and still leaves the
+    // overlay in the DOM for slow parses.
+    void run();
 
     return () => {
       disposed = true;
       controller.abort();
-      clearTimeout(timer);
       release();
     };
   }, [data, attempt, format, renderer?.revision]);
