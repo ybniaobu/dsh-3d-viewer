@@ -45,6 +45,7 @@ function readPixelRatio() {
  *   reset: () => void,
  *   invalidate: () => void,
  *   paint: () => void,
+ *   warmup: () => Promise<void>,
  *   environmentReady: Promise<void>,
  *   dispose: () => void,
  * }} View controls.
@@ -309,6 +310,16 @@ export function createSceneView(host, object, stats, options = {}) {
     post.render(0);
   }
 
+  async function warmup() {
+    if (disposed) return;
+
+    // Compile the scene materials and the post-processing pass before the
+    // first visible frame. A synchronous compile is faster than polling
+    // compileAsync for these few programs; the loading overlay covers it.
+    renderer.compile(scene, camera);
+    post.warmup(renderer);
+  }
+
   function dispose() {
     if (disposed) return;
     disposed = true;
@@ -378,6 +389,7 @@ export function createSceneView(host, object, stats, options = {}) {
     reset,
     invalidate,
     paint,
+    warmup,
     environmentReady,
     dispose,
   };

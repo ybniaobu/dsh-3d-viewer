@@ -1,6 +1,12 @@
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import {
+  Mesh,
+  OrthographicCamera,
+  PlaneGeometry,
+  Scene,
+} from 'three';
 import { BLUE_NOISE_SIZE, createBlueNoiseTexture } from './blue-noise.js';
 
 const POST_VERTEX_SHADER = `
@@ -91,6 +97,7 @@ void main() {
  * @returns {{
  *   render: (delta: number) => void,
  *   setSize: (width: number, height: number, pixelRatio: number) => boolean,
+ *   warmup: (renderer: import('three').WebGLRenderer) => void,
  *   dispose: () => void,
  * }} Post-processing controls.
  */
@@ -144,6 +151,31 @@ export function createPostProcessing({ renderer, scene, camera, width, height, p
     composer.render(delta);
   }
 
+  /**
+   * Compile the tone-mapping pass before the first visible frame.
+   *
+   * The pass has its own ShaderMaterial, which the scene compile cannot reach.
+   * A tiny full-screen quad shares the material so Three caches the same
+   * program the composer will use.
+   *
+   * @param {import('three').WebGLRenderer} renderer Active renderer.
+   * @returns {void}
+   */
+  function warmup(renderer) {
+    const scene = new Scene();
+    const geometry = new PlaneGeometry(2, 2);
+    const mesh = new Mesh(geometry, outputPass.material);
+    scene.add(mesh);
+    const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    try {
+      renderer.compile(scene, camera);
+    } finally {
+      scene.remove(mesh);
+      geometry.dispose();
+    }
+  }
+
   function dispose() {
     composer.dispose();
     outputPass.dispose();
@@ -151,5 +183,5 @@ export function createPostProcessing({ renderer, scene, camera, width, height, p
     renderPass.dispose?.();
   }
 
-  return { render, setSize, dispose };
+  return { render, setSize, warmup, dispose };
 }

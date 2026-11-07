@@ -221,12 +221,9 @@ function ModelViewer(props) {
           return;
         }
 
-        // Paint once with the saved settings before the ready state removes the
-        // loading overlay, so the canvas is never uncovered while still blank.
-        view.paint();
-
-        // Reveal the model and its IBL together. The first paint already
-        // compiled the shaders; waiting here only adds the HDRI bytes/PMREM.
+        // Wait for the IBL, then compile the scene and post-processing with the
+        // environment already present. Painting before the environment applies
+        // would compile a second program variant after the switch.
         let timer;
         try {
           await Promise.race([
@@ -244,8 +241,13 @@ function ModelViewer(props) {
           return;
         }
 
-        // onReady applied the target asynchronously; repaint so the first
-        // revealed frame contains the environment rather than popping it in.
+        await view.warmup();
+        if (disposed) {
+          release();
+          return;
+        }
+
+        // Paint the first visible frame from warm programs, with IBL in place.
         view.paint();
 
         viewRef.current = view;

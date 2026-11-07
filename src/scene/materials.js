@@ -106,17 +106,15 @@ export function toPbrMaterial(source, cache) {
     pbr[property] = source[property] ?? fallback;
   }
   for (const slot of TEXTURE_SLOTS) {
-    pbr[slot] = source[slot] ?? null;
+    const texture = source[slot] ?? null;
+    pbr[slot] = texture;
+    // Color maps are decoded from sRGB by the shader; normal/AO/alpha/
+    // displacement/bump maps stay linear.
+    if (texture !== null) {
+      texture.colorSpace = SRGB_TEXTURE_SLOTS.has(slot) ? SRGBColorSpace : NoColorSpace;
+    }
   }
   if (source.normalScale !== undefined) pbr.normalScale.copy(source.normalScale);
-
-  // Normalize texture color spaces explicitly. Color maps are decoded from
-  // sRGB by the shader; normal/AO/alpha/displacement/bump maps stay linear.
-  for (const slot of TEXTURE_SLOTS) {
-    const texture = pbr[slot];
-    if (texture === null) continue;
-    texture.colorSpace = SRGB_TEXTURE_SLOTS.has(slot) ? SRGBColorSpace : NoColorSpace;
-  }
 
   const fbxRoughness = source.userData?.fbxRoughness;
   pbr.roughness = typeof fbxRoughness === 'number' && Number.isFinite(fbxRoughness)
