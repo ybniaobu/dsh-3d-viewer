@@ -45,12 +45,27 @@ function clamp01(value) {
 }
 
 /**
+ * @param {ImageData} image Source pixels.
+ * @returns {ImageData} Vertically flipped pixels.
+ */
+function flipImageData(image) {
+  const rowLength = image.width * 4;
+  const flipped = new Uint8ClampedArray(image.data.length);
+  for (let y = 0; y < image.height; y += 1) {
+    const source = (image.height - 1 - y) * rowLength;
+    flipped.set(image.data.subarray(source, source + rowLength), y * rowLength);
+  }
+  return new ImageData(flipped, image.width, image.height);
+}
+
+/**
  * Turn a decoded texture into canvas-ready RGBA pixels.
  *
  * @param {import('three').Texture} texture Decoded TGA/EXR/HDR texture.
+ * @param {boolean} [flipY] Flip the image vertically for display.
  * @returns {ImageData} RGBA image.
  */
-function imageDataFor(texture) {
+function imageDataFor(texture, flipY = false) {
   const image = texture.image;
   const width = image?.width;
   const height = image?.height;
@@ -66,7 +81,12 @@ function imageDataFor(texture) {
   const byteData = data instanceof Uint8Array || data instanceof Uint8ClampedArray;
 
   if (byteData && !hdr && channels === 4) {
-    return new ImageData(new Uint8ClampedArray(data.subarray(0, pixels * 4)), width, height);
+    const direct = new ImageData(
+      new Uint8ClampedArray(data.subarray(0, pixels * 4)),
+      width,
+      height,
+    );
+    return flipY ? flipImageData(direct) : direct;
   }
 
   const out = new Uint8ClampedArray(pixels * 4);
@@ -107,7 +127,8 @@ function imageDataFor(texture) {
     out[target + 3] = clamp01(alpha) * 255;
   }
 
-  return new ImageData(out, width, height);
+  const imageData = new ImageData(out, width, height);
+  return flipY ? flipImageData(imageData) : imageData;
 }
 
 /**
@@ -115,10 +136,11 @@ function imageDataFor(texture) {
  * unit test, which supplies a minimal ImageData implementation.
  *
  * @param {import('three').Texture} texture Decoded texture.
+ * @param {boolean} [flipY] Flip the image vertically.
  * @returns {ImageData} RGBA image.
  */
-export function textureImageData(texture) {
-  return imageDataFor(texture);
+export function textureImageData(texture, flipY = false) {
+  return imageDataFor(texture, flipY);
 }
 
 /**
@@ -134,22 +156,32 @@ function bitDepthFor(texture) {
 
 /**
  * @param {HTMLCanvasElement | null} canvas Target canvas.
- * @param {import('three').Texture} texture Decoded texture.
- * @returns {{ width: number, height: number, bits: number }} Preview metadata.
+ * @param {ImageData} image Pixels to draw.
+ * @returns {void}
  */
-function drawTexture(canvas, texture) {
+function drawImageData(canvas, image) {
   if (canvas === null) throw new Error('The texture preview canvas is unavailable.');
-
-  const image = imageDataFor(texture);
   canvas.width = image.width;
   canvas.height = image.height;
   const context = canvas.getContext('2d');
   if (context === null) throw new Error('The 2D canvas context is unavailable.');
   context.putImageData(image, 0, 0);
+}
+
+/**
+ * @param {HTMLCanvasElement | null} canvas Target canvas.
+ * @param {import('three').Texture} texture Decoded texture.
+ * @param {boolean} [flipY] Flip the image vertically for display.
+ * @returns {{ width: number, height: number, bits: number, image: ImageData }} Preview metadata.
+ */
+function drawTexture(canvas, texture, flipY = false) {
+  const image = imageDataFor(texture, flipY);
+  drawImageData(canvas, image);
   return {
     width: image.width,
     height: image.height,
     bits: bitDepthFor(texture),
+    image,
   };
 }
 
@@ -186,10 +218,12 @@ function TextureViewer(props) {
   });
   const [attempt, setAttempt] = React.useState(0);
   const [view, setView] = React.useState({ scale: 1, x: 0, y: 0 });
+  const [flipY, setFlipY] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
   const canvasRef = React.useRef(null);
   const stageRef = React.useRef(null);
   const dragRef = React.useRef(null);
+  const imageRef = React.useRef(null);
   const loadBytesRef = React.useRef(typeof props.loadBytes === 'function' ? props.loadBytes : null);
   const addressRef = React.useRef(typeof props.resourceAddress === 'string' ? props.resourceAddress : null);
   const rendererRef = React.useRef(renderer);
@@ -205,6 +239,8 @@ function TextureViewer(props) {
     const run = async () => {
       setState({ status: 'loading', failure: null, width: 0, height: 0, bits: 0 });
       setView({ scale: 1, x: 0, y: 0 });
+      setFlipY(false);
+      imageRef.current = null;
       try {
         let bytes = directData;
         let version;
@@ -230,11 +266,19 @@ function TextureViewer(props) {
           return;
         }
 
-        const info = drawTexture(canvasRef.current, texture);
+        const info = drawTexture(canvasRef.current, texture, false);
         texture.dispose();
+        imageRef.current = info.image;
         activeRenderer?.loaded?.(version);
         setView({ scale: 1, x: 0, y: 0 });
-        setState({ status: 'ready', failure: null, ...info });
+        setFlipY(false);
+        setState({
+          status: 'ready',
+          failure: null,
+          width: info.width,
+          height: info.height,
+          bits: info.bits,
+        });
       } catch (error) {
         if (disposed || controller.signal.aborted) return;
         rendererRef.current?.failed?.(error);
@@ -258,6 +302,12 @@ function TextureViewer(props) {
       controller.abort();
     };
   }, [attempt, directData, format, renderer?.revision]);
+
+  React.useEffect(() => {
+    if (state.status !== 'ready' || imageRef.current === null) return;
+    const image = flipY ? flipImageData(imageRef.current) : imageRef.current;
+    drawImageData(canvasRef.current, image);
+  }, [flipY, state.status]);
 
   React.useEffect(() => {
     if (state.status !== 'ready') return undefined;
@@ -356,6 +406,16 @@ function TextureViewer(props) {
       ready
         ? h('span', { className: 'dsh3dv-badge' },
           `${state.width} × ${state.height} · ${state.bits}-bit${zoomed ? ` · ${zoomPercent}%` : ''}`)
+        : null,
+      ready
+        ? h('button', {
+          type: 'button',
+          className: 'dsh3dv-texture-fit',
+          'aria-pressed': flipY ? 'true' : 'false',
+          onClick: () => setFlipY((value) => !value),
+          title: t('textureFlipY'),
+          'aria-label': t('textureFlipY'),
+        }, t('textureFlipY'))
         : null,
       ready && zoomed
         ? h('button', {
