@@ -131,7 +131,10 @@ function changedFailure() {
 }
 
 /**
- * Read a list of windows with bounded concurrency, preserving document order.
+ * Read a list of windows with bounded concurrency into one preallocated
+ * buffer. Each worker copies its window as soon as it arrives, so the peak
+ * memory is the output plus at most one window per worker instead of a second
+ * complete copy of the file.
  *
  * @param {{ readBytes: Function }} workspaceFiles Workspace Remote face.
  * @param {string} sessionId Session identity.
@@ -139,20 +142,36 @@ function changedFailure() {
  * @param {Array<{ offset: number, length: number }>} ranges Windows to read.
  * @param {AbortSignal} signal Cancellation signal.
  * @param {{ data: Uint8Array, version: string | undefined }} [initial] Already-read first window.
+ * @param {number} totalSize Complete file size.
  * @returns {Promise<object>} A complete-byte result shaped like `readBytes`.
  */
-async function readRanges(workspaceFiles, sessionId, path, ranges, signal, initial) {
-  const results = new Array(ranges.length);
-  let cursor = 0;
+async function readRanges(workspaceFiles, sessionId, path, ranges, signal, initial, totalSize) {
+  if (!Number.isInteger(totalSize) || totalSize < 0) {
+    return failure(new Error('The workspace reported an invalid file size.'));
+  }
+  const output = new Uint8Array(totalSize);
+  let version = initial?.version;
+  let error = null;
 
+  if (initial !== undefined) {
+    if (initial.data.byteLength > output.length) {
+      return failure(new Error('The workspace returned an oversized first window.'));
+    }
+    output.set(initial.data, 0);
+  }
+
+  let cursor = 0;
   const worker = async () => {
     for (;;) {
+      if (error !== null) return;
       const index = cursor;
       cursor += 1;
       if (index >= ranges.length) return;
+
       const range = ranges[index];
+      let result;
       try {
-        results[index] = await readWindow(
+        result = await readWindow(
           workspaceFiles,
           sessionId,
           path,
@@ -160,9 +179,35 @@ async function readRanges(workspaceFiles, sessionId, path, ranges, signal, initi
           range.length,
           signal,
         );
-      } catch (error) {
-        results[index] = failure(error);
+      } catch (readError) {
+        result = failure(readError);
       }
+      if (error !== null) return;
+      if (result?.ok !== true) {
+        error = result ?? failure(new Error('The workspace returned no byte window.'));
+        return;
+      }
+
+      const value = result.value;
+      const chunk = value?.data;
+      if (!(chunk instanceof Uint8Array)) {
+        error = failure(new Error('The workspace returned no byte window.'));
+        return;
+      }
+      if (version === undefined) version = value.version;
+      else if (value.version !== undefined && value.version !== version) {
+        error = changedFailure();
+        return;
+      }
+      if (chunk.byteLength !== range.length) {
+        error = failure(new Error('The workspace returned a short byte window.'));
+        return;
+      }
+      if (range.offset < 0 || range.offset + chunk.byteLength > output.length) {
+        error = failure(new Error('The workspace returned an out-of-range byte window.'));
+        return;
+      }
+      output.set(chunk, range.offset);
     }
   };
 
@@ -170,29 +215,8 @@ async function readRanges(workspaceFiles, sessionId, path, ranges, signal, initi
     Array.from({ length: Math.min(READ_CONCURRENCY, ranges.length) }, worker),
   );
 
-  const chunks = initial === undefined ? [] : [initial.data];
-  let version = initial?.version;
-
-  for (let index = 0; index < results.length; index += 1) {
-    const result = results[index];
-    if (result?.ok !== true) {
-      return result ?? failure(new Error('The workspace returned no byte window.'));
-    }
-    const value = result.value;
-    const chunk = value?.data;
-    if (!(chunk instanceof Uint8Array)) {
-      return failure(new Error('The workspace returned no byte window.'));
-    }
-    if (version === undefined) version = value.version;
-    else if (value.version !== undefined && value.version !== version) return changedFailure();
-
-    if (chunk.byteLength !== ranges[index].length) {
-      return failure(new Error('The workspace returned a short byte window.'));
-    }
-    chunks.push(chunk);
-  }
-
-  return mergeWindows(chunks, version);
+  if (error !== null) return error;
+  return { ok: true, value: { data: output, version, bytes: output.length } };
 }
 
 /**
@@ -216,7 +240,7 @@ function readBySize(workspaceFiles, sessionId, path, size, signal) {
       length: Math.min(READ_CHUNK_BYTES, size - offset),
     });
   }
-  return readRanges(workspaceFiles, sessionId, path, ranges, signal);
+  return readRanges(workspaceFiles, sessionId, path, ranges, signal, undefined, size);
 }
 
 /**
@@ -253,7 +277,7 @@ async function readWithoutStat(workspaceFiles, sessionId, path, signal) {
     return readRanges(workspaceFiles, sessionId, path, ranges, signal, {
       data,
       version: value.version,
-    });
+    }, value.bytes);
   }
 
   const chunks = [data];
