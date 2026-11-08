@@ -19,7 +19,7 @@
 
 1. 打开 DSH Desktop，点击侧边栏的 **Plugins（插件）**。
 2. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
-3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.2.0`。
+3. 输入 `dsh-3d-viewer`；需要固定版本时写 `dsh-3d-viewer@0.2.1`。
 4. **Registry** 选择 npm 官方源（国内也可用 npmmirror）。
 5. 点击 **Install**，在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
 
@@ -65,8 +65,10 @@
 
 补充说明：
 
-- **所有格式**：文件自带的灯光、相机和音频节点会被移除，预览统一使用自己的灯光和相机。
+- **所有格式**：文件自带的灯光、相机和音频节点会被忽略；FBX 在解析阶段直接跳过相机/灯光构建，预览统一使用自己的灯光和相机。
+- 3D 画布使用 Blender 默认视口色调（浅色 `#f8f8f8`，深色 `#303030`），根据当前 DSH 外观自动选择。
 - **FBX**：外部贴图缺失时仅告警，不阻断几何显示。
+- **FBX、OBJ**：sidecar 贴图加载与几何解析并行；两者都完成（或贴图等待超时）后才显示场景。
 - **OBJ**：缺少 MTL 时回退默认材质；贴图缺失时使用白色占位。
 - **glTF、GLB**：多个图元共用的资源只读取一次。
 - **STL**：没有材质和动画。
@@ -85,6 +87,12 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 - 元信息显示尺寸、每通道位深和当前缩放比例。
 - 独立预览支持滚轮缩放、放大后拖拽平移、**适应窗口** / 双击复位，以及 **垂直翻转**。
 - 解码 chunk 只在首次使用时加载；打开 PNG、JPEG 或不使用 TGA、EXR、HDR 的模型不会下载它们。
+- 浏览器允许 Blob Worker 时，EXR、HDR 预览和模型 sidecar 最多使用两个懒加载 Worker；低内存或四核及以下设备只使用一个；Worker 被阻止时回退到主线程解码。
+- 支持 WebGL2 时，HDR 预览使用 GPU 色调映射；WebGL 被阻止或不支持时回退到 half-float LUT。
+- 预览结果按资源地址、文件版本和格式缓存：普通设备 160 MiB LRU，4 GB 及以下设备 64 MiB；未变化的纹理再次打开时跳过 Worker 解码和 GPU 转换。
+- 关闭预览会取消对应的 Worker 请求；没有未完成任务的 Worker 会终止，并在下次需要时重建。
+- 材质 sidecar 的 buffer 直接 transfer 给 Worker，省去一次拷贝；预览 buffer 会复制，因为文档读取缓存可能共享它。
+- 第一个 WebGL2 预览上下文会在连续预览之间复用；同时打开多个预览时，后来者使用独立上下文。
 
 ### 暂不支持
 
@@ -102,7 +110,7 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 | `cordis.patch.yml` | 插入插件行的 bundle patch |
 | `package.json` | DSH manifest、exports、engines 和打包文件列表 |
 | `dist/client.js` | 预构建客户端入口，经 `exports["./client"]` 提供 |
-| `dist/client.*.js` | FBX、OBJ、glTF、GLB、STL 与 TGA、EXR、HDR 懒加载 chunk，与入口同目录 |
+| `dist/client.*.js` | FBX、OBJ、glTF、GLB、STL 与 TGA、EXR、HDR 懒加载 chunk，以及独立 EXR/HDR Worker 源码，与入口同目录 |
 | `icon.svg` | DSH 元信息要求的包根图标 |
 | `locale/*.json` | 中英文 UI 字典 |
 | `assets/hdri/` | 由宿主路由提供的 Poly Haven CC0 HDRI |
@@ -137,14 +145,14 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 | 路径 | 职责 |
 | --- | --- |
 | `src/scene/create-scene-view.js` | 场景编排：renderer、camera、controls、渲染循环 |
-| `src/scene/renderer.js` | Renderer 创建与固定的 Three 设置 |
-| `src/scene/renderer-pool.js` | 跨视图复用 renderer 与 PMREM |
+| `src/scene/renderer-pool.js` | Renderer 创建/配置与 PMREM、renderer 复用 |
 | `src/scene/environment.js` | HDRI 获取、PMREM 构建与按 id 缓存 |
 | `src/scene/materials.js` | Phong/Lambert → PBR、材质预设与线框 |
 | `src/scene/ground.js` | 无限网格 shader 与阴影接收面 |
 | `src/scene/animation.js` | AnimationMixer、片段时间轴与进度 |
 | `src/scene/camera.js` | 取景、键盘旋转与裁剪面 |
-| `src/scene/lighting.js` | 主/补光与阴影 |
+| `src/scene/theme-background.js` | 根据 DSH 表面色调选择 Blender 风格浅/深视口背景 |
+| `src/scene/lighting.js` | 主光与阴影 |
 | `src/scene/render-loop.js` | 合并帧调度 |
 | `src/scene/postprocessing.js` | MSAA/ACES 与抖动 |
 | `src/scene/blue-noise.js` | 蓝噪声贴图 |
@@ -160,16 +168,19 @@ TGA、EXR、HDR 文件可以直接从 **Files** 打开；同一套解码器也�
 | `src/loaders/stl.js` | STL 解析 |
 | `src/loaders/gltf.js` | glTF、GLB buffer、贴图、动画与清理 |
 | `src/loaders/workspace.js` | 资源地址、工作区读取、TGA、EXR、HDR 分派与贴图回退 |
+| `src/loaders/texture-worker-client.js` | 最多两个 Worker 的 EXR/HDR 客户端；低内存/低核心设备降为一个，失败时回退主线程 |
+| `src/ui/texture-webgl.js` | 复用 WebGL2 上下文的 HDR 色调映射，失败时回退 CPU |
+| `src/ui/texture-preview-cache.js` | 按文件版本索引的预览结果 LRU 缓存 |
 | `src/loaders/chunk-require.js` | DSH 包 chunk 的 `require.async` 桥 |
 | `src/loaders/three-bridge.js` | 与懒加载 chunk 共享的 Three 导出 |
-| `src/loaders/chunks/*.js` | 每个懒加载格式/纹理 chunk 一个入口 |
+| `src/loaders/chunks/*.js` | 纹理解码与 Worker chunk 入口；模型 chunk 直接构建自 `src/loaders/*.js` |
 | `src/vendor/fbx-loader-pbr.js` | vendored Three FBXLoader，额外支持 PBR 自定义属性 |
 
 ### 构建与测试
 
 | 路径 | 职责 |
 | --- | --- |
-| `build.mjs` | 构建 `dist/client.js`、格式 chunk 与纹理 chunk |
+| `build.mjs` | 构建 `dist/client.js`、格式 chunk、纹理 chunk 与 EXR/HDR Worker |
 | `tests/run.mjs` | 每个 `tests/*.mjs` 在独立进程中运行 |
 | `tests/*.mjs` | loader、renderer pool、HDRI 路由、SSR、manifest、chunks 与纹理预览 |
 

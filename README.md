@@ -19,7 +19,7 @@ Distributed as the npm package `dsh-3d-viewer`. The prebuilt `dist/client.js` co
 
 1. Open DSH Desktop and choose **Plugins** in the sidebar.
 2. Click **Add plugin** → **Install a third-party plugin**.
-3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.2.0` to pin a version).
+3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.2.1` to pin a version).
 4. Set **Registry** to the official npm registry (npmmirror also works in mainland China).
 5. Click **Install**, then confirm **3D Viewer** is **On** under **Installed plugins**.
 
@@ -65,8 +65,10 @@ External resources (FBX and glTF textures, glTF `.bin`, OBJ MTL and textures) ar
 
 Notes:
 
-- **All formats**: lights, cameras, and audio embedded in the file are removed; the preview uses its own lighting and camera.
+- **All formats**: lights, cameras, and audio embedded in the file are ignored; FBX skips camera/light construction during parsing, and the preview uses its own lighting and camera.
+- The 3D canvas uses Blender's default viewport tones (`#f8f8f8` light, `#303030` dark), selected from the current DSH appearance.
 - **FBX**: a missing external texture warns but does not block geometry.
+- **FBX and OBJ**: sidecar texture loading overlaps geometry parsing; the view is revealed after both finish (or after the texture settle timeout).
 - **OBJ**: a missing MTL falls back to default materials; missing textures use white placeholders.
 - **glTF, GLB**: resources shared by several primitives are read once.
 - **STL**: no materials or animations.
@@ -85,6 +87,12 @@ TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders
 - The metadata badge shows dimensions, per-channel bit depth, and the current zoom percentage.
 - Direct previews support wheel zoom, drag-to-pan when zoomed, **Fit** / double-click reset, and **Flip Y** for bottom-up sources.
 - Decoder chunks are fetched only on first use; opening a PNG or JPEG, or a model that never uses TGA, EXR, or HDR, does not download them.
+- EXR and HDR previews and model sidecars decode in up to two lazy workers when the browser allows Blob workers; low-memory or four-core-or-fewer devices use one worker, and blocked workers fall back to the main thread.
+- HDR previews use a WebGL2 tone-mapping pass when available, with a half-float LUT fallback for blocked or unsupported WebGL contexts.
+- Preview results are cached by resource address, file version, and format: 160 MiB LRU on normal devices, 64 MiB on devices reporting 4 GB or less. Reopening an unchanged texture skips worker decode and GPU conversion.
+- Closing a preview aborts its worker request; a worker with no outstanding work is terminated and recreated on demand.
+- Material sidecar buffers are transferred to the worker without the extra copy; preview buffers are copied because the document read cache can share them.
+- The first WebGL2 preview context is reused across sequential previews; a concurrent preview gets a standalone context.
 
 ### Not supported
 
@@ -102,7 +110,7 @@ TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders
 | `cordis.patch.yml` | Bundle patch that inserts the plugin row |
 | `package.json` | DSH manifest, exports, engines, and package file list |
 | `dist/client.js` | Prebuilt client entry served through `exports["./client"]` |
-| `dist/client.*.js` | Lazy format and texture decoder chunks, colocated with the entry |
+| `dist/client.*.js` | Lazy format and texture decoder chunks, plus the standalone EXR/HDR worker source, colocated with the entry |
 | `icon.svg` | Plugin icon required at the package root |
 | `locale/*.json` | English/Chinese UI dictionaries |
 | `assets/hdri/` | Packaged Poly Haven CC0 HDRIs served by the host route |
@@ -137,14 +145,14 @@ TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders
 | Path | Responsibility |
 | --- | --- |
 | `src/scene/create-scene-view.js` | Scene orchestration: renderer, camera, controls, and loop |
-| `src/scene/renderer.js` | Renderer creation and fixed Three settings |
-| `src/scene/renderer-pool.js` | Renderer and PMREM reuse across views |
+| `src/scene/renderer-pool.js` | Renderer creation/configuration and PMREM/renderer reuse across views |
 | `src/scene/environment.js` | HDRI fetch, PMREM construction, and per-id cache |
 | `src/scene/materials.js` | Phong/Lambert → PBR conversion, presets, and wireframe |
 | `src/scene/ground.js` | Infinite grid shader and shadow receiver |
 | `src/scene/animation.js` | AnimationMixer, clip timeline, and progress |
 | `src/scene/camera.js` | Framing, keyboard orbit, and clip planes |
-| `src/scene/lighting.js` | Key/fill lighting and shadows |
+| `src/scene/theme-background.js` | Blender-like light/dark viewport background selected from the DSH surface tone |
+| `src/scene/lighting.js` | Key light and shadows |
 | `src/scene/render-loop.js` | Coalescing frame scheduler |
 | `src/scene/postprocessing.js` | MSAA/ACES pass and dithering |
 | `src/scene/blue-noise.js` | Blue-noise texture |
@@ -160,16 +168,19 @@ TGA, EXR, and HDR files can be opened directly from **Files**. The same decoders
 | `src/loaders/stl.js` | STL parsing |
 | `src/loaders/gltf.js` | glTF, GLB buffers, textures, animations, and cleanup |
 | `src/loaders/workspace.js` | Resource addresses, workspace reads, TGA, EXR, HDR dispatch, and texture fallback |
+| `src/loaders/texture-worker-client.js` | Up-to-two-worker EXR/HDR client, reduced to one on low-memory/low-core devices, with main-thread fallback |
+| `src/ui/texture-webgl.js` | Reused WebGL2 HDR tone-mapping pass with CPU fallback |
+| `src/ui/texture-preview-cache.js` | Version-keyed LRU cache for finished previews |
 | `src/loaders/chunk-require.js` | `require.async` bridge for DSH package chunks |
 | `src/loaders/three-bridge.js` | Curated Three exports shared with lazy chunks |
-| `src/loaders/chunks/*.js` | One entry per lazy format or texture chunk |
+| `src/loaders/chunks/*.js` | Texture decoder and worker chunk entries; model chunks build directly from `src/loaders/*.js` |
 | `src/vendor/fbx-loader-pbr.js` | Vendored Three FBXLoader with PBR custom attributes |
 
 ### Build and tests
 
 | Path | Responsibility |
 | --- | --- |
-| `build.mjs` | Bundles `dist/client.js`, format chunks, and texture chunks |
+| `build.mjs` | Bundles `dist/client.js`, format chunks, texture chunks, and the EXR/HDR worker |
 | `tests/run.mjs` | Runs each `tests/*.mjs` in its own process |
 | `tests/*.mjs` | Loaders, renderer pool, HDRI route, SSR, manifest, chunks, and texture previews |
 

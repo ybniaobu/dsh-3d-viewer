@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { BufferAttribute, BufferGeometry, Mesh, Group } from 'three';
+import { Box3, BufferAttribute, BufferGeometry, Group, Mesh, Scene, Vector3 } from 'three';
 import { collectModelStats } from '../src/model.js';
-import { niceGridStep } from '../src/scene/ground.js';
+import { createGround, niceGridStep } from '../src/scene/ground.js';
 
 const group = new Group();
 group.add(new Mesh(new BufferGeometry().setAttribute('position', new BufferAttribute(
@@ -53,6 +53,22 @@ assert.equal(niceGridStep(24), 2);
 assert.equal(niceGridStep(60), 5);
 assert.equal(niceGridStep(120), 10);
 assert.equal(niceGridStep(Number.NaN), 1);
+
+const groundScene = new Scene();
+const ground = createGround({
+  scene: groundScene,
+  stats: {
+    center: new Vector3(1, 0, 1),
+    box: new Box3(new Vector3(0, 0, 0), new Vector3(2, 2, 2)),
+    maxDimension: 2,
+  },
+  maxDimension: 2,
+});
+assert.equal(ground.setFogColor(0x000000), true);
+assert.equal(ground.setFogColor(0x000000), false);
+const grid = groundScene.children.find((child) => child.material?.uniforms?.uFogColor);
+assert.equal(grid.material.uniforms.uFogColor.value.getHex(), 0x000000);
+ground.dispose();
 
 // An invisible branch contributes nothing, including to the world bounds.
 const invisibleGroup = new Group();

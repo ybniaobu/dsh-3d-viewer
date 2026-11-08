@@ -91,6 +91,37 @@ assert.equal(externalStats.triangles, 1);
 gltfExternal.assets.dispose();
 disposeObject(gltfExternal.object);
 
+const escaped = JSON.parse(JSON.stringify(external));
+escaped.buffers[0].uri = 'triangle%20.bin';
+let escapedReads = 0;
+const gltfEscaped = await loadGltfModel(JSON.stringify(escaped), {
+  resourceAddress: 'dsh-resource://file/session/test/samples/AnimatedTriangle.gltf',
+  readWorkspaceFile: async (_address, path) => {
+    escapedReads += 1;
+    assert.equal(path, 'triangle .bin', 'URI escapes are decoded before reading');
+    return { ok: true, value: { data: new Uint8Array(bin), absolutePath: 'F:/workspace/triangle .bin' } };
+  },
+});
+assert.equal(escapedReads, 1);
+assert.equal(collectModelStats(gltfEscaped.object).triangles, 1);
+gltfEscaped.assets.dispose();
+disposeObject(gltfEscaped.object);
+
+const escapedKeyJson = JSON.stringify(external).replace('"uri"', '"\\u0075ri"');
+let escapedKeyReads = 0;
+const gltfEscapedKey = await loadGltfModel(escapedKeyJson, {
+  resourceAddress: 'dsh-resource://file/session/test/samples/AnimatedTriangle.gltf',
+  readWorkspaceFile: async (_address, path) => {
+    escapedKeyReads += 1;
+    assert.equal(path, 'triangle.bin');
+    return { ok: true, value: { data: new Uint8Array(bin), absolutePath: 'F:/workspace/triangle.bin' } };
+  },
+});
+assert.equal(escapedKeyReads, 1, 'JSON-escaped uri property names must be prefetched');
+assert.equal(collectModelStats(gltfEscapedKey.object).triangles, 1);
+gltfEscapedKey.assets.dispose();
+disposeObject(gltfEscapedKey.object);
+
 const shadowScene = new Group();
 const car = new Mesh(new BoxGeometry(2, 1, 2), new MeshStandardMaterial());
 shadowScene.add(car);

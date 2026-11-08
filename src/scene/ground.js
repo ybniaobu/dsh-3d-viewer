@@ -34,6 +34,7 @@ void main() {
 const GRID_FRAGMENT_SHADER = `
 uniform sampler2D uGridMap;
 uniform vec3 uColor;
+uniform vec3 uFogColor;
 uniform float uGridScale;
 uniform float uMinorAlpha;
 uniform float uMajorAlpha;
@@ -56,7 +57,7 @@ void main() {
   vec2 gridUv = vWorldPosition.xz * uGridScale;
   vec2 lines = texture2D(uGridMap, gridUv).rg;
   float alpha = max(lines.r * uMinorAlpha, lines.g * uMajorAlpha) * opacity;
-  vec3 color = mix(uColor, vec3(1.0), depthT);
+  vec3 color = mix(uColor, uFogColor, depthT);
 
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(color, alpha);
@@ -194,6 +195,7 @@ function createGridTexture(anisotropy) {
  *   update: (camera: import('three').PerspectiveCamera, target: import('three').Vector3, distance: number) => void,
  *   setGridVisible: (visible: boolean) => boolean,
  *   setShadowVisible: (visible: boolean) => boolean,
+ *   setFogColor: (color: number) => boolean,
  *   dispose: () => void,
  * }} Ground controls.
  */
@@ -209,6 +211,7 @@ export function createGround({ scene, stats, maxDimension, maxAnisotropy = 1 }) 
   const gridUniforms = {
     uGridMap: { value: gridTexture },
     uColor: { value: new Color(0x7b8087) },
+    uFogColor: { value: new Color(0xffffff) },
     uGridScale: { value: 1 / (gridCell * GRID_TEXTURE_CELLS) },
     uMinorAlpha: { value: 0.25 },
     uMajorAlpha: { value: 0.5 },
@@ -268,6 +271,13 @@ export function createGround({ scene, stats, maxDimension, maxAnisotropy = 1 }) 
     return true;
   }
 
+  function setFogColor(color) {
+    const next = Number(color) & 0xffffff;
+    if (gridUniforms.uFogColor.value.getHex() === next) return false;
+    gridUniforms.uFogColor.value.setHex(next);
+    return true;
+  }
+
   function dispose() {
     scene.remove(grid, shadowPlane);
     gridGeometry.dispose();
@@ -281,6 +291,7 @@ export function createGround({ scene, stats, maxDimension, maxAnisotropy = 1 }) 
     update,
     setGridVisible,
     setShadowVisible,
+    setFogColor,
     dispose,
   };
 }

@@ -4,14 +4,13 @@ Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures dire
 
 **Requires DSH Desktop 0.2.2-rc.1 or newer** (built and tested on 0.2.2-rc.1).
 
-## What's new in 0.2.0
+## What's new in 0.2.1
 
-- TGA, EXR, and HDR files can be opened directly as texture previews.
-- TGA, EXR, and HDR sidecar textures are decoded through lazy chunks and can be used by FBX and OBJ materials.
-- Texture previews support wheel zoom, drag panning, Fit/double-click reset, vertical flip, and dimension/bit-depth/zoom metadata.
-- Large models are read through parallel windows with a preallocated output buffer; complete files are cached by version.
-- Startup and scene setup are faster: lazy format chunks, shared renderers/PMREM targets, shader warmup, and fewer material conversions.
-- Auto-rotate is time-based and grid/clip-plane updates are avoided while it runs.
+- Model loading is faster: glTF resources are discovered without a second full JSON parse, OBJ only creates MTL materials referenced by `usemtl`, FBX animation actions are created lazily, and full-buffer files are parsed without copying.
+- Texture previews are smoother: HDR/EXR previews show before their cache image is captured, the shared WebGL context releases the previous texture, and the worker pool cancels stale work and reuses finished decodes.
+- The model viewport now follows the DSH light/dark appearance with Blender-style backgrounds, a light wireframe on dark surfaces, black fog on dark backgrounds, and darker themed overlay panels.
+- Viewer badges, status panels, hints, animation controls, and pickers now share the same 11px/600 typography hierarchy.
+- Fixed the HDR/EXR preview cache crash when a WebGL preview has no `ImageData`, and fixed glTF URI aliases pointing at one prefetched resource.
 
 ## Highlights
 

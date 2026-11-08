@@ -35,40 +35,102 @@ function jsonChunkOfGlb(bytes) {
   return null;
 }
 
+const IMAGE_URI = /\.(?:avif|bmp|dds|exr|gif|hdr|jpe?g|ktx2|png|tga|webp)(?:[?#]|$)/iu;
+const WHITESPACE = /\s/u;
+
 /**
- * Parse glTF JSON from either a `.gltf` text document or a `.glb` container.
+ * Read one JSON string literal starting at `start`.
+ *
+ * @param {string} text JSON text.
+ * @param {number} start Index of the opening quote.
+ * @returns {{ value: string, end: number } | null} Decoded string and the index after it.
+ */
+function readJsonString(text, start) {
+  if (text[start] !== '"') return null;
+
+  let index = start + 1;
+  let escaped = false;
+  while (index < text.length) {
+    const character = text[index];
+    if (escaped) {
+      escaped = false;
+    } else if (character === '\\') {
+      escaped = true;
+    } else if (character === '"') {
+      index += 1;
+      try {
+        return { value: JSON.parse(text.slice(start, index)), end: index };
+      } catch {
+        return null;
+      }
+    }
+    index += 1;
+  }
+  return null;
+}
+
+/**
+ * Extract the JSON text of a `.gltf` document or GLB JSON chunk without
+ * parsing it. GLTFLoader remains the single JSON parser.
  *
  * @param {Uint8Array | ArrayBuffer | string} data Complete glTF/GLB bytes.
- * @returns {object | null} Parsed glTF JSON, or null when a GLB has no JSON chunk.
+ * @returns {string | null} JSON text, or null when a GLB has no JSON chunk.
  */
-function parseGltfJson(data) {
+function gltfJsonText(data) {
   const bytes = toBytes(data);
   if (bytes.byteLength >= 12
     && bytes[0] === 0x67
     && bytes[1] === 0x6c
     && bytes[2] === 0x54
     && bytes[3] === 0x46) {
-    const json = jsonChunkOfGlb(bytes);
-    return json === null ? null : JSON.parse(json);
+    return jsonChunkOfGlb(bytes);
   }
-  return JSON.parse(decodeText(bytes).replace(/^\uFEFF/u, ''));
+  return decodeText(bytes).replace(/^\uFEFF/u, '');
 }
 
 /**
- * List the external buffers and images a glTF document references.
+ * Scan JSON text for local `uri` string values without parsing the document.
+ * The scan may see custom extension URIs too; they are still valid resources to
+ * prefetch and are deduplicated by decoded path.
  *
- * @param {any} json Parsed glTF JSON.
- * @returns {Array<{ uri: string, kind: 'buffer' | 'image' }>} Local URIs in document order.
+ * @param {string | null} jsonText glTF JSON text.
+ * @returns {Array<{ uri: string, kind: 'buffer' | 'image', aliases: Set<string> }>} Local URIs.
  */
-function collectUris(json) {
-  const entries = [];
-  for (const buffer of Array.isArray(json.buffers) ? json.buffers : []) {
-    if (isLocalPath(buffer?.uri)) entries.push({ uri: buffer.uri, kind: 'buffer' });
+function collectGltfUris(jsonText) {
+  if (typeof jsonText !== 'string') return [];
+  const entries = new Map();
+
+  for (let index = 0; index < jsonText.length; index += 1) {
+    if (jsonText[index] !== '"') continue;
+    const key = readJsonString(jsonText, index);
+    if (key === null) continue;
+    index = key.end - 1;
+    if (key.value !== 'uri') continue;
+
+    let cursor = key.end;
+    while (WHITESPACE.test(jsonText[cursor] ?? '')) cursor += 1;
+    if (jsonText[cursor] !== ':') continue;
+    cursor += 1;
+    while (WHITESPACE.test(jsonText[cursor] ?? '')) cursor += 1;
+    const value = readJsonString(jsonText, cursor);
+    if (value === null) continue;
+    index = value.end - 1;
+
+    const uri = value.value;
+    if (!isLocalPath(uri)) continue;
+
+    const path = decodeLocalPath(uri);
+    const kind = IMAGE_URI.test(path) ? 'image' : 'buffer';
+    const current = entries.get(path);
+    if (current === undefined) {
+      entries.set(path, { uri, kind, aliases: new Set([uri, path]) });
+    } else {
+      if (current.kind === 'buffer' && kind === 'image') current.kind = 'image';
+      current.aliases.add(uri);
+      current.aliases.add(path);
+    }
   }
-  for (const image of Array.isArray(json.images) ? json.images : []) {
-    if (isLocalPath(image?.uri)) entries.push({ uri: image.uri, kind: 'image' });
-  }
-  return entries;
+  return [...entries.values()];
 }
 
 function createAssets() {
@@ -163,53 +225,55 @@ export async function loadGltfModel(data, options = {}) {
   const blobs = new Map();
 
   try {
-    let json = null;
-    try {
-      json = parseGltfJson(data);
-    } catch (error) {
-      throw new Error(`Invalid glTF JSON: ${error instanceof Error ? error.message : String(error)}`);
+    let jsonText = null;
+    if (typeof options.readWorkspaceFile === 'function'
+      && typeof options.resourceAddress === 'string') {
+      try {
+        jsonText = gltfJsonText(data);
+      } catch {
+        // GLTFLoader reports malformed files; do not duplicate that error here.
+      }
     }
 
-    if (json !== null && typeof options.readWorkspaceFile === 'function'
-      && typeof options.resourceAddress === 'string') {
+    if (jsonText !== null) {
       // A document may reference the same buffer or image from several
-      // primitives; each unique (kind, uri) pair is read exactly once.
-      const entries = new Map();
-      for (const entry of collectUris(json)) {
-        entries.set(`${entry.kind}\u0000${entry.uri}`, entry);
-      }
-
-      await Promise.all([...entries.values()].map(async (entry) => {
-        if (options.signal?.aborted === true) throw abortError();
-        try {
-          const result = await options.readWorkspaceFile(options.resourceAddress, decodeLocalPath(entry.uri), {
-            signal: options.signal,
-          });
+      // primitives; each unique URI is read exactly once.
+      const entries = collectGltfUris(jsonText);
+      let next = 0;
+      const workers = Array.from({ length: Math.min(4, entries.length) }, async () => {
+        while (next < entries.length) {
+          const entry = entries[next];
+          next += 1;
           if (options.signal?.aborted === true) throw abortError();
-          if (result?.ok === true) {
-            const blob = URL.createObjectURL(new Blob([result.value.data], {
-              type: entry.kind === 'image' ? mimeOf(entry.uri) : 'application/octet-stream',
-            }));
-            assets.track(blob);
-            blobs.set(entry.uri, blob);
-            const decoded = decodeLocalPath(entry.uri);
-            if (decoded !== entry.uri) blobs.set(decoded, blob);
-          } else if (entry.kind === 'image') {
-            onWarn(`[dsh-3d-viewer] Could not read glTF image "${entry.uri}"; using a white texture.`);
-            blobs.set(entry.uri, WHITE_PIXEL);
-          } else {
-            onWarn(`[dsh-3d-viewer] Could not read glTF buffer "${entry.uri}".`);
-          }
-        } catch (error) {
-          if (options.signal?.aborted === true) throw abortError();
-          if (entry.kind === 'image') {
-            onWarn(`[dsh-3d-viewer] Could not read glTF image "${entry.uri}"; using a white texture.`);
-            blobs.set(entry.uri, WHITE_PIXEL);
-          } else {
-            onWarn(`[dsh-3d-viewer] Could not read glTF buffer "${entry.uri}": ${String(error)}`);
+          try {
+            const result = await options.readWorkspaceFile(options.resourceAddress, decodeLocalPath(entry.uri), {
+              signal: options.signal,
+            });
+            if (options.signal?.aborted === true) throw abortError();
+            if (result?.ok === true) {
+              const blob = URL.createObjectURL(new Blob([result.value.data], {
+                type: entry.kind === 'image' ? mimeOf(entry.uri) : 'application/octet-stream',
+              }));
+              assets.track(blob);
+              for (const alias of entry.aliases) blobs.set(alias, blob);
+            } else if (entry.kind === 'image') {
+              onWarn(`[dsh-3d-viewer] Could not read glTF image "${entry.uri}"; using a white texture.`);
+              for (const alias of entry.aliases) blobs.set(alias, WHITE_PIXEL);
+            } else {
+              onWarn(`[dsh-3d-viewer] Could not read glTF buffer "${entry.uri}".`);
+            }
+          } catch (error) {
+            if (options.signal?.aborted === true) throw abortError();
+            if (entry.kind === 'image') {
+              onWarn(`[dsh-3d-viewer] Could not read glTF image "${entry.uri}"; using a white texture.`);
+              for (const alias of entry.aliases) blobs.set(alias, WHITE_PIXEL);
+            } else {
+              onWarn(`[dsh-3d-viewer] Could not read glTF buffer "${entry.uri}": ${String(error)}`);
+            }
           }
         }
-      }));
+      });
+      await Promise.all(workers);
     }
 
     const manager = new LoadingManager();

@@ -52,12 +52,20 @@ console.log(`Built dist/client.js (${Buffer.byteLength(wrapped)} bytes) for ${pk
 // Format loaders are package-local chunks. They are self-contained CJS and
 // receive the entry bundle's Three instance through a tiny require shim, so a
 // format is only downloaded when it is first opened.
-const CHUNK_NAMES = ['fbx', 'obj', 'gltf', 'stl', 'tex-tga', 'tex-exr', 'tex-hdr'];
-for (const name of CHUNK_NAMES) {
+const CHUNK_ENTRIES = Object.freeze({
+  fbx: 'src/loaders/fbx.js',
+  obj: 'src/loaders/obj.js',
+  gltf: 'src/loaders/gltf.js',
+  stl: 'src/loaders/stl.js',
+  'tex-tga': 'src/loaders/chunks/tex-tga.js',
+  'tex-exr': 'src/loaders/chunks/tex-exr.js',
+  'tex-hdr': 'src/loaders/chunks/tex-hdr.js',
+});
+for (const [name, entry] of Object.entries(CHUNK_ENTRIES)) {
   const chunkBundle = resolve(root, `.build/chunk-${name}.cjs`);
   await esbuild.build({
     absWorkingDir: root,
-    entryPoints: [resolve(root, `src/loaders/chunks/${name}.js`)],
+    entryPoints: [resolve(root, entry)],
     bundle: true,
     format: 'cjs',
     platform: 'browser',
@@ -97,3 +105,36 @@ ${chunkCode}
   await writeFile(resolve(distDir, chunkName), chunkWrapped);
   console.log(`Built dist/${chunkName} (${Buffer.byteLength(chunkWrapped)} bytes) for ${pkg.name}.`);
 }
+
+// EXR/HDR parsing is CPU-heavy for large images. This lazy chunk carries a
+// standalone worker bundle; the preview creates a Blob worker from its source
+// string and falls back to the main-thread decoders when workers are blocked.
+const workerBundle = resolve(root, '.build/tex-worker.iife.js');
+await esbuild.build({
+  absWorkingDir: root,
+  entryPoints: [resolve(root, 'src/loaders/chunks/tex-worker.js')],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: ['chrome120', 'edge120'],
+  minify: true,
+  legalComments: 'none',
+  logLevel: 'warning',
+  outfile: workerBundle,
+});
+const workerCode = (await readFile(workerBundle, 'utf8')).trimEnd();
+const workerName = 'client.tex-worker.js';
+const workerWrapped = `/*! dsh-3d-viewer EXR/HDR worker chunk | bundles Three.js addons (MIT). See THIRD_PARTY_NOTICES.md. */
+window.__ModuleLoader__.load({
+  id: ${JSON.stringify(pkg.name)},
+  chunk: ${JSON.stringify(workerName)},
+  factory(require) {
+    var module = { exports: {} };
+    var exports = module.exports;
+    exports.workerSource = ${JSON.stringify(workerCode)};
+    return module.exports;
+  },
+});
+`;
+await writeFile(resolve(distDir, workerName), workerWrapped);
+console.log(`Built dist/${workerName} (${Buffer.byteLength(workerWrapped)} bytes) for ${pkg.name}.`);

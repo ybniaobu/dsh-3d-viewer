@@ -174,6 +174,7 @@ export function normalizeMaterialPreset(id) {
  * @returns {{
  *   setPreset: (id: unknown) => boolean,
  *   setWireframe: (enabled: boolean) => boolean,
+ *   setWireframeColor: (color: number) => boolean,
  *   dispose: () => void,
  *   readonly preset: string,
  *   readonly wireframe: boolean,
@@ -257,6 +258,13 @@ export function createMaterialController(root) {
     return true;
   }
 
+  function setWireframeColor(color) {
+    const next = Number(color) & 0xffffff;
+    if (wireframeMaterial.color.getHex() === next) return false;
+    wireframeMaterial.color.setHex(next);
+    return true;
+  }
+
   function dispose() {
     for (const state of meshStates) {
       state.mesh.material = state.material;
@@ -271,6 +279,7 @@ export function createMaterialController(root) {
   return {
     setPreset,
     setWireframe,
+    setWireframeColor,
     dispose,
     get preset() {
       return preset;

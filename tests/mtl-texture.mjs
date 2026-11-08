@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { loadModelBytes } from '../src/loaders/model-loader.js';
 import { loadObjModel } from '../src/loaders/obj.js';
+import { createWorkspaceAssetLoader } from '../src/loaders/workspace.js';
 import { disposeObject } from '../src/model.js';
 
 globalThis.__DSH3DV_REQUIRE__ = {
@@ -46,6 +47,9 @@ f 1 2 3
 const mtl = `newmtl red
 Kd 1 0 0
 map_Kd texture.png
+newmtl unused
+Kd 0 0 1
+map_Kd unused.png
 `;
 const textureBytes = new Uint8Array([137, 80, 78, 71]);
 
@@ -77,11 +81,30 @@ assert.ok(mesh.material.map, 'MTL diffuse map should be attached');
 assert.ok(mesh.material.map.image, 'texture image should be loaded');
 assert.equal(mesh.material.map.image.src.startsWith('blob:'), true);
 assert.deepEqual(reads.sort(), ['texture.png', 'textured.mtl']);
+assert.equal(reads.includes('unused.png'), false, 'unused MTL materials must not preload textures');
 
 loaded.assets.dispose();
 disposeObject(loaded.object);
 
+const dedupeReads = [];
+const dedupeAssets = createWorkspaceAssetLoader({
+  readFile: async (path) => {
+    dedupeReads.push(path);
+    return { ok: true, value: { data: textureBytes } };
+  },
+  onWarn: () => {},
+});
+const dedupeHandler = dedupeAssets.manager.getHandler('texture.png');
+const first = dedupeHandler.load('texture.png');
+const second = dedupeHandler.load('texture.png');
+await dedupeAssets.settle();
+assert.equal(dedupeReads.length, 1, 'the same path must be read only once');
+assert.notEqual(first, second, 'each material gets its own Texture object');
+assert.ok(first.image && second.image);
+dedupeAssets.dispose();
+
 console.log('OBJ MTL texture verified:', {
   reads,
   mapImage: mesh.material.map.image.src.startsWith('blob:'),
+  dedupedReads: dedupeReads,
 });

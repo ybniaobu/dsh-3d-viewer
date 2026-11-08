@@ -238,7 +238,8 @@ export function collectModelStats(object) {
 export function stripEmbeddedSceneNodes(root) {
   const embedded = [];
   root.traverse((child) => {
-    if (child.isLight === true || child.isCamera === true || child.isAudio === true) {
+    if (child.isLight === true || child.isCamera === true || child.isAudio === true
+      || child.userData?.dsh3dEmbeddedSceneNode === true) {
       embedded.push(child);
     }
   });

@@ -19,9 +19,11 @@ const root = new Group();
 const mesh = new Mesh(new BoxGeometry(), new MeshStandardMaterial());
 const light = new DirectionalLight();
 const camera = new PerspectiveCamera();
-root.add(mesh, light, camera);
+const marked = new Group();
+marked.userData.dsh3dEmbeddedSceneNode = true;
+root.add(mesh, light, camera, marked);
 
-assert.equal(stripEmbeddedSceneNodes(root), 2);
+assert.equal(stripEmbeddedSceneNodes(root), 3);
 assert.equal(root.children.length, 1);
 assert.equal(root.children[0], mesh, 'only model geometry should remain');
 
@@ -53,6 +55,6 @@ mesh.geometry.dispose();
 mesh.material.dispose();
 
 console.log('Embedded scene nodes verified:', {
-  removedFromGraph: 2,
+  removedFromGraph: 3,
   gltfEmbeddedLights: leftover.length,
 });

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { AnimationClip, Object3D, VectorKeyframeTrack } from 'three';
+import { AnimationClip, AnimationMixer, Object3D, VectorKeyframeTrack } from 'three';
 import { createAnimationController } from '../src/scene/animation.js';
 
 const object = new Object3D();
@@ -8,14 +8,28 @@ object.animations = [
     new VectorKeyframeTrack('.position', [0, 1], [0, 0, 0, 2, 0, 0]),
   ]),
   new AnimationClip('empty', 0, []),
+  new AnimationClip('slide', 2, [
+    new VectorKeyframeTrack('.position', [0, 2], [0, 0, 0, 0, 3, 0]),
+  ]),
 ];
+
+const originalClipAction = AnimationMixer.prototype.clipAction;
+let clipActionCalls = 0;
+AnimationMixer.prototype.clipAction = function (...args) {
+  clipActionCalls += 1;
+  return originalClipAction.apply(this, args);
+};
 
 const ticks = [];
 const controller = createAnimationController(object, {
   onTick: (state) => ticks.push(state),
 });
 
-assert.deepEqual(controller.animations, [{ name: 'move', duration: 1 }]);
+assert.deepEqual(controller.animations, [
+  { name: 'move', duration: 1 },
+  { name: 'slide', duration: 2 },
+]);
+assert.equal(clipActionCalls, 1, 'only the first clip action is created up front');
 assert.deepEqual(controller.snapshot(), { time: 0, duration: 1, index: 0, playing: false });
 assert.equal(controller.isPlaying(), false);
 
@@ -30,6 +44,12 @@ assert.deepEqual(controller.snapshot(), { time: 0.25, duration: 1, index: 0, pla
 assert.equal(controller.setClip(0), true);
 assert.deepEqual(controller.snapshot(), { time: 0, duration: 1, index: 0, playing: true });
 
+assert.equal(controller.setClip(1), true);
+assert.deepEqual(controller.snapshot(), { time: 0, duration: 2, index: 1, playing: true });
+assert.equal(clipActionCalls, 2, 'switching to a clip creates its action');
+controller.setClip(0);
+assert.equal(clipActionCalls, 2, 'switching back reuses the existing action');
+
 assert.equal(controller.setPlaying(false), true);
 assert.equal(controller.isPlaying(), false);
 controller.update(1, 2000);
@@ -40,10 +60,12 @@ assert.equal(controller.seek(Number.NaN), true);
 assert.equal(controller.snapshot().time, 0);
 
 controller.dispose();
+AnimationMixer.prototype.clipAction = originalClipAction;
 assert.ok(ticks.length >= 4);
 
 console.log('Animation controller verified:', {
   clips: controller.animations,
+  clipActionCalls,
   ticks: ticks.length,
   final: ticks[ticks.length - 1],
 });
