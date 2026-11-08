@@ -45,7 +45,7 @@ export const TEXTURE_FORMATS = Object.freeze({
 });
 
 /** Registration order in the sidebar preview list. */
-export const TEXTURE_FORMAT_IDS = Object.freeze(Object.keys(TEXTURE_FORMATS));
+const TEXTURE_FORMAT_IDS = Object.freeze(Object.keys(TEXTURE_FORMATS));
 
 /** @type {readonly TextureFormatDefinition[]} */
 export const TEXTURE_FORMAT_ENTRIES = Object.freeze(

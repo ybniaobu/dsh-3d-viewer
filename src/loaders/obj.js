@@ -1,6 +1,7 @@
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { abortError, decodeText, warn } from '../bytes.js';
+import { disposeObject } from '../model.js';
 import { createWorkspaceAssetLoader, readWithBasenameFallback } from './workspace.js';
 
 /**
@@ -21,7 +22,11 @@ function materialLibraries(text) {
 }
 
 /**
- * Load the first readable MTL library and its textures.
+ * Load the first readable MTL library.
+ *
+ * The material creator is returned before creating any materials. OBJLoader
+ * creates only the materials referenced by `usemtl` while parsing geometry,
+ * which starts just those textures.
  *
  * @param {string} text OBJ text.
  * @param {{
@@ -70,8 +75,6 @@ async function loadObjMaterials(text, options) {
 
       const loader = new MTLLoader(assets.manager);
       const materials = loader.parse(materialsText, '');
-      materials.preload();
-      await assets.settle();
 
       if (options.signal?.aborted === true) throw abortError();
       return { materials, assets };
@@ -133,6 +136,14 @@ export async function loadObjModel(data, options = {}) {
     const loader = new OBJLoader();
     if (materials !== null) loader.setMaterials(materials);
     const object = loader.parse(text);
+    // OBJLoader creates only the materials referenced by the geometry; their
+    // texture work is pending now. Wait for both before returning so the first
+    // displayed frame has geometry and materials ready.
+    await assets?.settle();
+    if (options.signal?.aborted === true) {
+      disposeObject(object);
+      throw abortError();
+    }
     return { object, assets };
   } catch (error) {
     assets?.dispose();

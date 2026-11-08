@@ -3,6 +3,13 @@ import { decodeWorkspaceTexture } from '../loaders/workspace.js';
 import { StatusOverlay } from './chrome.js';
 import { CSS } from './styles.js';
 import { en } from './dictionaries.js';
+import { createWebGlPreview } from './texture-webgl.js';
+import {
+  getCachedPreview,
+  previewCacheBudget,
+  previewCacheKey,
+  setCachedPreview,
+} from './texture-preview-cache.js';
 
 const h = React.createElement;
 const MAX_TEXTURE_ZOOM = 16;
@@ -47,6 +54,26 @@ function clamp01(value) {
 }
 
 /**
+ * Precompute byte values for every IEEE half-float bit pattern. Large EXR and
+ * HDR previews are half-float; doing the half decode and Reinhard/sRGB curve
+ * once per bit pattern avoids millions of pow() calls in the pixel loop.
+ *
+ * @param {boolean} toneMapped Whether to apply the HDR tone map.
+ * @returns {Uint8Array} 65,536-entry byte lookup table.
+ */
+function buildHalfLut(toneMapped) {
+  const lut = new Uint8Array(65536);
+  for (let bits = 0; bits < 65536; bits += 1) {
+    const value = halfToFloat(bits);
+    lut[bits] = Math.round(clamp01(toneMapped ? toneMap(value) : value) * 255);
+  }
+  return lut;
+}
+
+const HALF_SRGB_LUT = buildHalfLut(true);
+const HALF_LINEAR_LUT = buildHalfLut(false);
+
+/**
  * Turn a decoded texture into canvas-ready RGBA pixels.
  *
  * @param {import('three').Texture} texture Decoded TGA/EXR/HDR texture.
@@ -65,14 +92,39 @@ function imageDataFor(texture) {
   const pixels = width * height;
   const channels = Math.max(1, Math.min(4, Math.round(data.length / pixels)));
   const hdr = texture.userData?.dsh3dHdr === true;
+  const sourceBottomUp = texture.userData?.dsh3dSourceBottomUp === true;
   const byteData = data instanceof Uint8Array || data instanceof Uint8ClampedArray;
 
-  if (byteData && !hdr && channels === 4) {
+  if (byteData && !hdr && !sourceBottomUp && channels === 4) {
     return new ImageData(
       new Uint8ClampedArray(data.subarray(0, pixels * 4)),
       width,
       height,
     );
+  }
+
+  if (hdr && data instanceof Uint16Array) {
+    const out = new Uint8ClampedArray(pixels * 4);
+    for (let pixel = 0; pixel < pixels; pixel += 1) {
+      const source = pixel * channels;
+      const sourceRow = Math.floor(pixel / width);
+      const targetRow = sourceBottomUp ? height - 1 - sourceRow : sourceRow;
+      const target = (targetRow * width + (pixel % width)) * 4;
+      const red = HALF_SRGB_LUT[data[source]];
+      if (channels === 1) {
+        out[target] = red;
+        out[target + 1] = red;
+        out[target + 2] = red;
+        out[target + 3] = 255;
+      } else {
+        const green = HALF_SRGB_LUT[data[source + 1]];
+        out[target] = red;
+        out[target + 1] = green;
+        out[target + 2] = channels >= 3 ? HALF_SRGB_LUT[data[source + 2]] : green;
+        out[target + 3] = channels === 4 ? HALF_LINEAR_LUT[data[source + 3]] : 255;
+      }
+    }
+    return new ImageData(out, width, height);
   }
 
   const out = new Uint8ClampedArray(pixels * 4);
@@ -84,7 +136,9 @@ function imageDataFor(texture) {
 
   for (let pixel = 0; pixel < pixels; pixel += 1) {
     const source = pixel * channels;
-    const target = pixel * 4;
+    const sourceRow = Math.floor(pixel / width);
+    const targetRow = sourceBottomUp ? height - 1 - sourceRow : sourceRow;
+    const target = (targetRow * width + (pixel % width)) * 4;
     let red;
     let green;
     let blue;
@@ -202,16 +256,36 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
 /**
  * @param {HTMLCanvasElement | null} canvas Target canvas.
  * @param {import('three').Texture} texture Decoded texture.
- * @returns {{ width: number, height: number, bits: number, image: ImageData }} Preview metadata.
+ * @returns {{
+ *   width: number,
+ *   height: number,
+ *   bits: number,
+ *   image?: ImageData,
+ *   glPreview?: { render: (flipY: boolean) => void, dispose: () => void },
+ * }} Preview metadata.
  */
 function drawTexture(canvas, texture) {
-  const image = imageDataFor(texture);
-  drawImageData(canvas, image);
+  const image = texture.image;
+  const width = image?.width;
+  const height = image?.height;
+  const bits = bitDepthFor(texture);
+  if (texture.userData?.dsh3dHdr === true) {
+    try {
+      const glPreview = createWebGlPreview(canvas, texture);
+      return { width, height, bits, glPreview };
+    } catch {
+      // Fall through to the CPU path when WebGL2 or the float upload is
+      // unavailable; the visible canvas has not been switched to WebGL.
+    }
+  }
+
+  const pixels = imageDataFor(texture);
+  drawImageData(canvas, pixels);
   return {
-    width: image.width,
-    height: image.height,
-    bits: bitDepthFor(texture),
-    image,
+    width: pixels.width,
+    height: pixels.height,
+    bits,
+    image: pixels,
   };
 }
 
@@ -254,8 +328,11 @@ function TextureViewer(props) {
   const stageRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const imageRef = React.useRef(null);
+  const glPreviewRef = React.useRef(null);
   const sourceCanvasRef = React.useRef(null);
   const sourceImageRef = React.useRef(null);
+  const flipYRef = React.useRef(false);
+  const cacheTokenRef = React.useRef(0);
   const loadBytesRef = React.useRef(typeof props.loadBytes === 'function' ? props.loadBytes : null);
   const addressRef = React.useRef(typeof props.resourceAddress === 'string' ? props.resourceAddress : null);
   const rendererRef = React.useRef(renderer);
@@ -265,13 +342,21 @@ function TextureViewer(props) {
   rendererRef.current = renderer;
 
   React.useEffect(() => {
+    flipYRef.current = flipY;
+  }, [flipY]);
+
+  React.useEffect(() => {
     const controller = new AbortController();
     let disposed = false;
 
     const run = async () => {
+      const cacheToken = (cacheTokenRef.current += 1);
+      flipYRef.current = false;
       setState({ status: 'loading', failure: null, width: 0, height: 0, bits: 0 });
       setView({ scale: 1, x: 0, y: 0 });
       setFlipY(false);
+      glPreviewRef.current?.dispose();
+      glPreviewRef.current = null;
       imageRef.current = null;
       sourceImageRef.current = null;
       try {
@@ -293,7 +378,34 @@ function TextureViewer(props) {
           throw new Error('The texture file has no content.');
         }
 
-        const texture = await decodeWorkspaceTexture(format, bytes);
+        const cacheKey = activeRenderer !== null
+          && version !== undefined
+          && addressRef.current !== null
+          ? previewCacheKey(addressRef.current, version, format)
+          : null;
+        const cached = cacheKey === null ? null : getCachedPreview(cacheKey);
+        if (cached !== null) {
+          if (disposed || controller.signal.aborted) return;
+          drawImageData(canvasRef.current, cached.image);
+          imageRef.current = cached.image;
+          glPreviewRef.current = null;
+          sourceImageRef.current = null;
+          activeRenderer?.loaded?.(version);
+          setView({ scale: 1, x: 0, y: 0 });
+          setFlipY(false);
+          setState({
+            status: 'ready',
+            failure: null,
+            width: cached.width,
+            height: cached.height,
+            bits: cached.bits,
+          });
+          return;
+        }
+
+        const texture = await decodeWorkspaceTexture(format, bytes, {
+          signal: controller.signal,
+        });
         if (disposed || controller.signal.aborted) {
           texture.dispose();
           return;
@@ -301,7 +413,8 @@ function TextureViewer(props) {
 
         const info = drawTexture(canvasRef.current, texture);
         texture.dispose();
-        imageRef.current = info.image;
+        imageRef.current = info.image ?? null;
+        glPreviewRef.current = info.glPreview ?? null;
         sourceImageRef.current = null;
         activeRenderer?.loaded?.(version);
         setView({ scale: 1, x: 0, y: 0 });
@@ -313,6 +426,41 @@ function TextureViewer(props) {
           height: info.height,
           bits: info.bits,
         });
+
+        if (cacheKey !== null && info.image !== null && info.image !== undefined) {
+          setCachedPreview(cacheKey, {
+            image: info.image,
+            width: info.width,
+            height: info.height,
+            bits: info.bits,
+          });
+        } else if (cacheKey !== null
+          && info.image === undefined
+          && info.width * info.height * 4 <= previewCacheBudget()) {
+          const capture = () => {
+            if (disposed || controller.signal.aborted || cacheTokenRef.current !== cacheToken) return;
+            if (flipYRef.current || glPreviewRef.current !== info.glPreview) return;
+            if (getCachedPreview(cacheKey) !== null) return;
+            try {
+              const context = canvasRef.current?.getContext('2d');
+              if (context === null || context === undefined) return;
+              const image = context.getImageData(0, 0, info.width, info.height);
+              setCachedPreview(cacheKey, {
+                image,
+                width: info.width,
+                height: info.height,
+                bits: info.bits,
+              });
+            } catch {
+              // Cache capture is best-effort; the preview is already visible.
+            }
+          };
+          if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(capture, { timeout: 2000 });
+          } else {
+            setTimeout(capture, 0);
+          }
+        }
       } catch (error) {
         if (disposed || controller.signal.aborted) return;
         rendererRef.current?.failed?.(error);
@@ -338,7 +486,12 @@ function TextureViewer(props) {
   }, [attempt, directData, format, renderer?.revision]);
 
   React.useEffect(() => {
-    if (state.status !== 'ready' || imageRef.current === null) return;
+    if (state.status !== 'ready') return;
+    if (glPreviewRef.current !== null) {
+      glPreviewRef.current.render(flipY);
+      return;
+    }
+    if (imageRef.current === null) return;
     drawImageData(
       canvasRef.current,
       imageRef.current,
@@ -347,6 +500,11 @@ function TextureViewer(props) {
       sourceImageRef,
     );
   }, [flipY, state.status]);
+
+  React.useEffect(() => () => {
+    glPreviewRef.current?.dispose();
+    glPreviewRef.current = null;
+  }, []);
 
   React.useEffect(() => {
     if (state.status !== 'ready') return undefined;
@@ -506,7 +664,11 @@ function TextureViewer(props) {
           type: 'button',
           className: 'dsh3dv-texture-fit',
           'aria-pressed': flipY ? 'true' : 'false',
-          onClick: () => setFlipY((value) => !value),
+          onClick: () => setFlipY((value) => {
+            const next = !value;
+            flipYRef.current = next;
+            return next;
+          }),
           title: t('textureFlipY'),
           'aria-label': t('textureFlipY'),
         }, t('textureFlipY'))

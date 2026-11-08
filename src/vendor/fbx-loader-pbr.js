@@ -7,14 +7,12 @@
  */
 
 import {
-	AmbientLight,
 	AnimationClip,
 	Bone,
 	BufferGeometry,
 	ClampToEdgeWrapping,
 	Color,
 	ColorManagement,
-	DirectionalLight,
 	EquirectangularReflectionMapping,
 	Euler,
 	FileLoader,
@@ -32,8 +30,6 @@ import {
 	MeshPhongMaterial,
 	NumberKeyframeTrack,
 	Object3D,
-	PerspectiveCamera,
-	PointLight,
 	PropertyBinding,
 	Quaternion,
 	QuaternionKeyframeTrack,
@@ -42,7 +38,6 @@ import {
 	ShapeUtils,
 	Skeleton,
 	SkinnedMesh,
-	SpotLight,
 	Texture,
 	TextureLoader,
 	Uint16BufferAttribute,
@@ -1179,10 +1174,12 @@ class FBXTreeParser {
 				switch ( node.attrType ) {
 
 					case 'Camera':
-						model = this.createCamera( relationships );
-						break;
 					case 'Light':
-						model = this.createLight( relationships );
+						// The preview supplies its own camera and lighting. Keep an
+						// empty transform node so hierarchy and animation targets
+						// still resolve, but skip projection/light allocation.
+						model = new Object3D();
+						model.userData.dsh3dEmbeddedSceneNode = true;
 						break;
 					case 'Mesh':
 						model = this.createMesh( relationships, geometryMap, materialMap );
@@ -1261,226 +1258,6 @@ class FBXTreeParser {
 		} );
 
 		return bone;
-
-	}
-
-	// create a PerspectiveCamera or OrthographicCamera
-	createCamera( relationships ) {
-
-		let model;
-		let cameraAttribute;
-
-		relationships.children.forEach( function ( child ) {
-
-			const attr = fbxTree.Objects.NodeAttribute[ child.ID ];
-
-			if ( attr !== undefined ) {
-
-				cameraAttribute = attr;
-
-			}
-
-		} );
-
-		if ( cameraAttribute === undefined ) {
-
-			model = new Object3D();
-
-		} else {
-
-			let type = 0;
-			if ( cameraAttribute.CameraProjectionType !== undefined && cameraAttribute.CameraProjectionType.value === 1 ) {
-
-				type = 1;
-
-			}
-
-			let nearClippingPlane = 1;
-			if ( cameraAttribute.NearPlane !== undefined ) {
-
-				nearClippingPlane = cameraAttribute.NearPlane.value / 1000;
-
-			}
-
-			let farClippingPlane = 1000;
-			if ( cameraAttribute.FarPlane !== undefined ) {
-
-				farClippingPlane = cameraAttribute.FarPlane.value / 1000;
-
-			}
-
-
-			let width = window.innerWidth;
-			let height = window.innerHeight;
-
-			if ( cameraAttribute.AspectWidth !== undefined && cameraAttribute.AspectHeight !== undefined ) {
-
-				width = cameraAttribute.AspectWidth.value;
-				height = cameraAttribute.AspectHeight.value;
-
-			}
-
-			const aspect = width / height;
-
-			let fov = 45;
-			if ( cameraAttribute.FieldOfView !== undefined ) {
-
-				fov = cameraAttribute.FieldOfView.value;
-
-			}
-
-			const focalLength = cameraAttribute.FocalLength ? cameraAttribute.FocalLength.value : null;
-
-			switch ( type ) {
-
-				case 0: // Perspective
-					model = new PerspectiveCamera( fov, aspect, nearClippingPlane, farClippingPlane );
-					if ( focalLength !== null ) model.setFocalLength( focalLength );
-					break;
-
-				case 1: // Orthographic
-					// Embedded cameras are stripped by the preview; keep the graph
-					// quiet instead of warning about a camera we never render.
-					model = new Object3D();
-					break;
-
-				default:
-					console.warn( 'THREE.FBXLoader: Unknown camera type ' + type + '.' );
-					model = new Object3D();
-					break;
-
-			}
-
-		}
-
-		return model;
-
-	}
-
-	// Create a DirectionalLight, PointLight or SpotLight
-	createLight( relationships ) {
-
-		let model;
-		let lightAttribute;
-
-		relationships.children.forEach( function ( child ) {
-
-			const attr = fbxTree.Objects.NodeAttribute[ child.ID ];
-
-			if ( attr !== undefined ) {
-
-				lightAttribute = attr;
-
-			}
-
-		} );
-
-		if ( lightAttribute === undefined ) {
-
-			model = new Object3D();
-
-		} else {
-
-			let type;
-
-			// LightType can be undefined for Point lights
-			if ( lightAttribute.LightType === undefined ) {
-
-				type = 0;
-
-			} else {
-
-				type = lightAttribute.LightType.value;
-
-			}
-
-			let color = 0xffffff;
-
-			if ( lightAttribute.Color !== undefined ) {
-
-				color = ColorManagement.colorSpaceToWorking( new Color().fromArray( lightAttribute.Color.value ), SRGBColorSpace );
-
-			}
-
-			let intensity = ( lightAttribute.Intensity === undefined ) ? 1 : lightAttribute.Intensity.value / 100;
-
-			// light disabled
-			if ( lightAttribute.CastLightOnObject !== undefined && lightAttribute.CastLightOnObject.value === 0 ) {
-
-				intensity = 0;
-
-			}
-
-			let distance = 0;
-			if ( lightAttribute.FarAttenuationEnd !== undefined ) {
-
-				if ( lightAttribute.EnableFarAttenuation !== undefined && lightAttribute.EnableFarAttenuation.value === 0 ) {
-
-					distance = 0;
-
-				} else {
-
-					distance = lightAttribute.FarAttenuationEnd.value;
-
-				}
-
-			}
-
-			// TODO: could this be calculated linearly from FarAttenuationStart to FarAttenuationEnd?
-			const decay = 1;
-
-			switch ( type ) {
-
-				case 0: // Point
-					model = new PointLight( color, intensity, distance, decay );
-					break;
-
-				case 1: // Directional
-					model = new DirectionalLight( color, intensity );
-					break;
-
-				case 2: // Spot
-					let angle = Math.PI / 3;
-					let penumbra = 0;
-
-					if ( lightAttribute.OuterAngle !== undefined ) {
-
-						angle = MathUtils.degToRad( lightAttribute.OuterAngle.value );
-
-						if ( lightAttribute.InnerAngle !== undefined ) {
-
-							penumbra = 1 - ( lightAttribute.InnerAngle.value / lightAttribute.OuterAngle.value );
-							penumbra = Math.max( 0, penumbra ); // penumbra must be in the range [0,1]
-
-						}
-
-					} else if ( lightAttribute.InnerAngle !== undefined ) {
-
-						// fallback if only InnerAngle is defined
-
-						angle = MathUtils.degToRad( lightAttribute.InnerAngle.value );
-
-					}
-
-					model = new SpotLight( color, intensity, distance, angle, penumbra, decay );
-					break;
-
-				default:
-					console.warn( 'THREE.FBXLoader: Unknown light type ' + lightAttribute.LightType.value + ', defaulting to a PointLight.' );
-					model = new PointLight( color, intensity );
-					break;
-
-			}
-
-			if ( lightAttribute.CastShadows !== undefined && lightAttribute.CastShadows.value === 1 ) {
-
-				model.castShadow = true;
-
-			}
-
-		}
-
-		return model;
 
 	}
 
@@ -1644,17 +1421,8 @@ class FBXTreeParser {
 
 						const pos = lookAtTarget.Lcl_Translation.value;
 
-						// DirectionalLight, SpotLight
-						if ( model.target !== undefined ) {
-
-							model.target.position.fromArray( pos );
-							sceneGraph.add( model.target );
-
-						} else { // Cameras and other Object3Ds
-
-							model.lookAt( new Vector3().fromArray( pos ) );
-
-						}
+						// Embedded cameras and lights are empty transform nodes now.
+						model.lookAt( new Vector3().fromArray( pos ) );
 
 					}
 
@@ -1773,24 +1541,8 @@ class FBXTreeParser {
 
 		if ( 'GlobalSettings' in fbxTree ) {
 
-			if ( 'AmbientColor' in fbxTree.GlobalSettings ) {
-
-				// Parse ambient color - if it's not set to black (default), create an ambient light
-
-				const ambientColor = fbxTree.GlobalSettings.AmbientColor.value;
-				const r = ambientColor[ 0 ];
-				const g = ambientColor[ 1 ];
-				const b = ambientColor[ 2 ];
-
-				if ( r !== 0 || g !== 0 || b !== 0 ) {
-
-					const color = new Color().setRGB( r, g, b, SRGBColorSpace );
-					sceneGraph.add( new AmbientLight( color, 1 ) );
-
-				}
-
-			}
-
+			// Embedded ambient lights are omitted: the preview supplies its own
+			// lighting and previously stripped this light after parsing.
 			if ( 'UnitScaleFactor' in fbxTree.GlobalSettings ) {
 
 				sceneGraph.userData.unitScaleFactor = fbxTree.GlobalSettings.UnitScaleFactor.value;

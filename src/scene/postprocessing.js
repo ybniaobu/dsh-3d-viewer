@@ -72,19 +72,18 @@ void main() {
   linear *= uExposure;
   linear = acesFilmic(linear);
   vec3 color = sRGBTransferOETF(linear);
-  vec3 finalColor = mix(vec3(1.0), color, alpha);
 
-  // Keep the pure white background clean; only dither pixels that actually
-  // contain scene content.
+  // Keep the canvas transparent so the themed host background shows through.
+  // Dither only pixels that actually contain scene content.
   float ditherMask = smoothstep(0.0, 0.02, alpha);
-  finalColor += ditherNoise(gl_FragCoord.xy) * ditherMask;
-  gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
+  color += ditherNoise(gl_FragCoord.xy) * ditherMask;
+  gl_FragColor = vec4(clamp(color, 0.0, 1.0) * alpha, alpha);
 }
 `;
 
 /**
- * Render the transparent scene into an MSAA target, then tone-map and
- * composite it over a pure white background in a single output pass.
+ * Render the transparent scene into an MSAA target, then tone-map it and keep
+ * the result transparent so the themed host background remains visible.
  *
  * @param {{
  *   renderer: import('three').WebGLRenderer,

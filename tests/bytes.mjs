@@ -31,7 +31,10 @@ const view = new Uint8Array([1, 2, 3, 4]).subarray(1, 3);
 const copied = toArrayBuffer(view);
 assert.deepEqual([...new Uint8Array(copied)], [2, 3]);
 view[0] = 9;
-assert.deepEqual([...new Uint8Array(copied)], [2, 3], 'toArrayBuffer must copy views');
+assert.deepEqual([...new Uint8Array(copied)], [2, 3], 'toArrayBuffer must copy subviews');
+
+const full = new Uint8Array([7, 8]);
+assert.equal(toArrayBuffer(full), full.buffer, 'full-buffer views must not be copied');
 
 assert.deepEqual([...toBytes('hi')], [104, 105]);
 assert.deepEqual([...new Uint8Array(toArrayBuffer('hi'))], [104, 105], 'text should encode as UTF-8');

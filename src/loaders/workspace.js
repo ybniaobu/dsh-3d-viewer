@@ -18,6 +18,7 @@ import {
   warn,
 } from '../bytes.js';
 import { asyncChunk } from './chunk-require.js';
+import { decodeTextureInWorker } from './texture-worker-client.js';
 
 const FILE_ADDRESS_PREFIX = 'dsh-resource://file/';
 // Any relative/absolute local path can be an MTL/FBX texture. Schemes are
@@ -64,13 +65,13 @@ function loadTextureChunk(format) {
 }
 
 /**
- * Decode a specialized texture through its lazy chunk.
+ * Decode a specialized texture through its lazy chunk on the main thread.
  *
  * @param {'tga' | 'exr' | 'hdr'} format Texture format.
  * @param {Uint8Array | ArrayBuffer} data Complete bytes.
  * @returns {Promise<Texture>} Decoded texture.
  */
-export async function decodeWorkspaceTexture(format, data) {
+async function decodeWorkspaceTextureOnMainThread(format, data) {
   const module = await loadTextureChunk(format);
   const decoders = { tga: 'decodeTga', exr: 'decodeExr', hdr: 'decodeHdr' };
   const decode = module[decoders[format]];
@@ -81,6 +82,19 @@ export async function decodeWorkspaceTexture(format, data) {
 }
 
 /**
+ * Decode a specialized texture. EXR/HDR use the shared worker so large
+ * sidecars do not block the model view; TGA and worker fallbacks stay local.
+ *
+ * @param {'tga' | 'exr' | 'hdr'} format Texture format.
+ * @param {Uint8Array | ArrayBuffer} data Complete bytes.
+ * @param {{ signal?: AbortSignal, transfer?: boolean }} [options] Cancellation and buffer ownership.
+ * @returns {Promise<Texture>} Decoded texture.
+ */
+export async function decodeWorkspaceTexture(format, data, options = {}) {
+  return decodeTextureInWorker(format, data, decodeWorkspaceTextureOnMainThread, options);
+}
+
+/**
  * Copy a decoded DataTexture's uploadable fields into the placeholder that is
  * already attached to a material.
  *
@@ -88,7 +102,7 @@ export async function decodeWorkspaceTexture(format, data) {
  * @param {Texture} source Decoded texture.
  * @returns {void}
  */
-function adoptTexture(target, source) {
+function adoptTexture(target, source, disposeSource = true) {
   const hdr = source.userData?.dsh3dHdr === true;
   const placeholderColorSpace = target.colorSpace;
   target.image = source.image;
@@ -109,7 +123,7 @@ function adoptTexture(target, source) {
   target.anisotropy = source.anisotropy;
   target.userData = { ...source.userData };
   target.needsUpdate = true;
-  source.dispose();
+  if (disposeSource) source.dispose();
 }
 
 /**
@@ -200,6 +214,23 @@ export async function readWithBasenameFallback(readFile, path) {
 }
 
 /**
+ * Load one image URL into an HTML image element.
+ *
+ * @param {string} url Image URL.
+ * @param {AbortSignal | undefined} signal Cancellation signal.
+ * @returns {Promise<HTMLImageElement>} Decoded image.
+ */
+function loadImageElement(url, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted === true) {
+      reject(abortError('Texture loading was cancelled.'));
+      return;
+    }
+    IMAGE_LOADER.load(url, resolve, undefined, reject);
+  });
+}
+
+/**
  * Load one image URL into a Texture placeholder.
  *
  * @param {Texture} texture Placeholder returned synchronously to Three.js.
@@ -207,19 +238,9 @@ export async function readWithBasenameFallback(readFile, path) {
  * @param {AbortSignal | undefined} signal Cancellation signal.
  * @returns {Promise<void>} Resolves when the image is assigned.
  */
-function loadImage(texture, url, signal) {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted === true) {
-      reject(abortError('Texture loading was cancelled.'));
-      return;
-    }
-
-    IMAGE_LOADER.load(url, (image) => {
-      texture.image = image;
-      texture.needsUpdate = true;
-      resolve();
-    }, undefined, reject);
-  });
+async function loadImage(texture, url, signal) {
+  texture.image = await loadImageElement(url, signal);
+  texture.needsUpdate = true;
 }
 
 /**
@@ -240,6 +261,66 @@ class WorkspaceTextureLoader extends Loader {
     this.blobUrls = options.blobUrls;
     this.listeners = options.listeners;
     this.disposed = options.isDisposed;
+    this.cache = new Map();
+    this.warned = new Set();
+  }
+
+  /**
+   * Load a shared image source once per workspace path. Every material gets
+   * its own Texture sampler state, but the file read and pixel decode happen
+   * only once for repeated references to the same path.
+   *
+   * @param {string} url Texture URL.
+   * @param {string | null} localPath Normalized workspace path, if local.
+   * @param {'tga' | 'exr' | 'hdr' | null} localFormat Specialized decoder.
+   * @returns {Promise<{ kind: 'data', texture: Texture } | { kind: 'image', image: HTMLImageElement }>} Shared image source.
+   */
+  async prepare(url, localPath, localFormat) {
+    let blobUrl = null;
+    try {
+      if (this.signal?.aborted === true || this.disposed?.() === true) {
+        throw abortError('Texture loading was cancelled.');
+      }
+
+      let imageUrl = url;
+      if (localPath !== null) {
+        const result = await readWithBasenameFallback(this.readFile, localPath);
+        if (result === undefined || result.ok !== true) {
+          throw new Error(result?.error?.message ?? `Could not read texture ${url}`);
+        }
+        if (this.signal?.aborted === true || this.disposed?.() === true) {
+          throw abortError('Texture loading was cancelled.');
+        }
+
+        if (localFormat !== null) {
+          const decoded = await decodeWorkspaceTexture(localFormat, result.value.data, {
+            signal: this.signal,
+            transfer: true,
+          });
+          if (this.signal?.aborted === true || this.disposed?.() === true) {
+            decoded.dispose();
+            throw abortError('Texture loading was cancelled.');
+          }
+          return { kind: 'data', texture: decoded };
+        }
+
+        blobUrl = URL.createObjectURL(new Blob([result.value.data], { type: mimeOf(localPath) }));
+        this.blobUrls.add(blobUrl);
+        imageUrl = blobUrl;
+      }
+
+      const image = await loadImageElement(imageUrl, this.signal);
+      if (this.signal?.aborted === true || this.disposed?.() === true) {
+        throw abortError('Texture loading was cancelled.');
+      }
+      return { kind: 'image', image };
+    } catch (error) {
+      if (blobUrl !== null && this.blobUrls.has(blobUrl)) {
+        URL.revokeObjectURL(blobUrl);
+        this.blobUrls.delete(blobUrl);
+      }
+      throw error;
+    }
   }
 
   load(url, onLoad, onProgress, onError) {
@@ -252,49 +333,34 @@ class WorkspaceTextureLoader extends Loader {
       : new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, RGBAFormat, UnsignedByteType);
     texture.name = url;
 
+    const key = localPath ?? url;
+    let entry = this.cache.get(key);
+    if (entry === undefined) {
+      entry = this.prepare(url, localPath, localFormat);
+      this.cache.set(key, entry);
+      entry.catch(() => {
+        if (this.cache.get(key) === entry) this.cache.delete(key);
+      });
+    }
+
     const task = (async () => {
-      let blobUrl = null;
       try {
-        if (this.signal?.aborted === true || this.disposed?.() === true) {
-          throw abortError('Texture loading was cancelled.');
+        const descriptor = await entry;
+        if (this.signal?.aborted === true || this.disposed?.() === true) return;
+
+        if (descriptor.kind === 'data') {
+          adoptTexture(texture, descriptor.texture, false);
+        } else {
+          texture.image = descriptor.image;
+          texture.needsUpdate = true;
         }
-
-        let imageUrl = url;
-        if (localPath !== null) {
-          const path = localPath;
-          const result = await readWithBasenameFallback(this.readFile, path);
-          if (result === undefined || result.ok !== true) {
-            throw new Error(result?.error?.message ?? `Could not read texture ${url}`);
-          }
-          if (this.signal?.aborted === true || this.disposed?.() === true) {
-            throw abortError('Texture loading was cancelled.');
-          }
-
-          if (localFormat !== null) {
-            const decoded = await decodeWorkspaceTexture(localFormat, result.value.data);
-            if (this.signal?.aborted === true || this.disposed?.() === true) {
-              decoded.dispose();
-              throw abortError('Texture loading was cancelled.');
-            }
-            adoptTexture(texture, decoded);
-            onLoad?.(texture);
-            return;
-          }
-
-          blobUrl = URL.createObjectURL(new Blob([result.value.data], { type: mimeOf(path) }));
-          this.blobUrls.add(blobUrl);
-          imageUrl = blobUrl;
-        }
-
-        await loadImage(texture, imageUrl, this.signal);
         onLoad?.(texture);
       } catch (error) {
-        if (blobUrl !== null && this.blobUrls.has(blobUrl)) {
-          URL.revokeObjectURL(blobUrl);
-          this.blobUrls.delete(blobUrl);
-        }
         if (this.signal?.aborted !== true && this.disposed?.() !== true) {
-          this.onWarn?.(`[dsh-3d-viewer] Could not load texture "${url}": ${String(error)}`);
+          if (!this.warned.has(key)) {
+            this.warned.add(key);
+            this.onWarn?.(`[dsh-3d-viewer] Could not load texture "${url}": ${String(error)}`);
+          }
           if (localFormat !== null) {
             texture.image = { data: new Uint8Array([255, 255, 255, 255]), width: 1, height: 1 };
             texture.needsUpdate = true;
@@ -325,6 +391,16 @@ class WorkspaceTextureLoader extends Loader {
       () => this.pending.delete(task),
     );
     return texture;
+  }
+
+  disposeCache() {
+    for (const entry of this.cache.values()) {
+      entry.then((descriptor) => {
+        if (descriptor?.kind === 'data') descriptor.texture.dispose();
+      }, () => {});
+    }
+    this.cache.clear();
+    this.warned.clear();
   }
 }
 
@@ -390,6 +466,7 @@ export function createWorkspaceAssetLoader({ readFile, signal, onWarn = warn }) 
   function dispose() {
     if (disposed) return;
     disposed = true;
+    textureLoader.disposeCache();
     for (const url of blobUrls) {
       Cache.remove(`image:${url}`);
       URL.revokeObjectURL(url);

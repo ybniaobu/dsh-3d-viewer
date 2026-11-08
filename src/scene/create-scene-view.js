@@ -9,8 +9,11 @@ import { createLighting } from './lighting.js';
 import { createMaterialController } from './materials.js';
 import { createPostProcessing } from './postprocessing.js';
 import { createRenderLoop } from './render-loop.js';
-import { configureViewerRenderer } from './renderer.js';
-import { rendererPool } from './renderer-pool.js';
+import {
+  configureViewerRenderer,
+  rendererPool,
+} from './renderer-pool.js';
+import { followBlenderBackground } from './theme-background.js';
 
 const MAX_PIXEL_RATIO = 2;
 const AUTO_ROTATE_SECONDS = 15;
@@ -82,12 +85,23 @@ export function createSceneView(host, object, stats, options = {}) {
   scene.add(object);
 
   const materials = createMaterialController(object);
+  let loop = null;
   const ground = createGround({
     scene,
     stats,
     maxDimension,
     maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
   });
+  const stopTheme = followBlenderBackground(
+    host.closest?.('.dsh3dv-root') ?? host,
+    host,
+    (tone) => {
+      const dark = tone === 'dark';
+      materials.setWireframeColor(dark ? 0xcfd3d6 : 0x4d5561);
+      ground.setFogColor(dark ? 0x000000 : 0xffffff);
+      loop?.invalidate();
+    },
+  );
 
   const animationListeners = new Set();
   const animation = createAnimationController(object, {
@@ -157,7 +171,7 @@ export function createSceneView(host, object, stats, options = {}) {
     camera.lookAt(controls.target);
   }
 
-  const loop = createRenderLoop((delta, timestamp) => {
+  loop = createRenderLoop((delta, timestamp) => {
     animation.update(delta, timestamp);
     if (autoRotate && !interacting) updateAutoRotate(timestamp);
     post.render(delta);
@@ -373,6 +387,7 @@ export function createSceneView(host, object, stats, options = {}) {
     resolveEnvironmentReady();
 
     loop.dispose();
+    stopTheme();
     resizeObserver?.disconnect();
     intersectionObserver?.disconnect();
     window.removeEventListener('resize', resize);

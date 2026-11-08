@@ -30,24 +30,39 @@ export function createAnimationController(object, { onTick } = {}) {
     : [];
   const animations = clips.map((clip) => ({ name: clip.name, duration: clip.duration }));
   const mixer = clips.length > 0 ? new AnimationMixer(object) : null;
-  const actions = [];
+  const actions = new Array(clips.length).fill(null);
   let index = 0;
   let playing = false;
   let lastNotify = -Infinity;
   let disposed = false;
 
-  if (mixer !== null) {
-    for (const clip of clips) {
-      const action = mixer.clipAction(clip);
+  /**
+   * Create an action only when its clip is first selected. The mixer keeps the
+   * action bound to the object, but unused clips stay uncached.
+   *
+   * @param {number} actionIndex Clip index.
+   * @returns {import('three').AnimationAction | null} Action.
+   */
+  function getAction(actionIndex) {
+    if (mixer === null || actionIndex < 0 || actionIndex >= clips.length) return null;
+
+    let action = actions[actionIndex];
+    if (action === null) {
+      action = mixer.clipAction(clips[actionIndex]);
       action.setLoop(LoopRepeat, Infinity);
       action.clampWhenFinished = false;
-      actions.push(action);
+      actions[actionIndex] = action;
     }
+    return action;
+  }
 
-    const first = actions[0];
-    first.reset().play();
-    first.paused = true;
-    mixer.update(0);
+  if (mixer !== null) {
+    const first = getAction(0);
+    if (first !== null) {
+      first.reset().play();
+      first.paused = true;
+      mixer.update(0);
+    }
   }
 
   function currentAction() {
@@ -55,13 +70,11 @@ export function createAnimationController(object, { onTick } = {}) {
   }
 
   function currentDuration() {
-    const action = currentAction();
-    return action === undefined ? 0 : action.getClip().duration;
+    return clips[index]?.duration ?? 0;
   }
 
   function currentTime() {
-    const action = currentAction();
-    return action === undefined ? 0 : action.time;
+    return currentAction()?.time ?? 0;
   }
 
   function snapshot() {
@@ -89,9 +102,10 @@ export function createAnimationController(object, { onTick } = {}) {
     const next = Boolean(enabled);
     if (next === playing) return false;
 
+    const action = getAction(index);
+    if (action === null) return false;
     playing = next;
-    const action = currentAction();
-    if (action !== undefined) action.paused = !playing;
+    action.paused = !playing;
     lastNotify = -Infinity;
     emit();
     return true;
@@ -99,11 +113,12 @@ export function createAnimationController(object, { onTick } = {}) {
 
   function setClip(nextIndex) {
     if (disposed || mixer === null) return false;
-    if (!Number.isInteger(nextIndex) || nextIndex < 0 || nextIndex >= actions.length) return false;
+    if (!Number.isInteger(nextIndex) || nextIndex < 0 || nextIndex >= clips.length) return false;
 
     index = nextIndex;
-    for (const action of actions) action.stop();
-    const action = actions[index];
+    for (const action of actions) action?.stop();
+    const action = getAction(index);
+    if (action === null) return false;
     action.reset().play();
     action.paused = !playing;
     mixer.update(0);
@@ -115,8 +130,8 @@ export function createAnimationController(object, { onTick } = {}) {
   function seek(seconds) {
     if (disposed || mixer === null) return false;
 
-    const action = currentAction();
-    if (action === undefined) return false;
+    const action = getAction(index);
+    if (action === null) return false;
 
     const duration = action.getClip().duration;
     const next = Number(seconds);

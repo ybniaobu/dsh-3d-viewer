@@ -29,18 +29,20 @@ const MIME_TYPES = new Map([
 const UTF8 = new TextDecoder('utf-8');
 
 /**
- * Copy preview bytes into a standalone ArrayBuffer.
- *
- * A view into a larger buffer is copied, so the returned payload never keeps
- * the document-preview store's memory alive. Text is encoded as UTF-8 for the
- * loaders that also accept a decoded document.
+ * Return the bytes as an ArrayBuffer without copying when the view already
+ * spans its entire backing buffer. Loaders only read this payload, so sharing
+ * the cached document/asset buffer is safe; a subview still gets a standalone
+ * copy so callers never retain more memory than requested.
  *
  * @param {Uint8Array | ArrayBuffer | string} data Complete file bytes or text.
- * @returns {ArrayBuffer} A standalone payload.
+ * @returns {ArrayBuffer} A standalone payload or the owning full-buffer view.
  */
 export function toArrayBuffer(data) {
   if (data instanceof ArrayBuffer) return data;
   if (ArrayBuffer.isView(data)) {
+    if (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength) {
+      return data.buffer;
+    }
     return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
   }
   if (typeof data === 'string') return new TextEncoder().encode(data).buffer;

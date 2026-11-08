@@ -111,6 +111,16 @@ assert.equal(tgaPreview.height, 2);
 assert.equal(tgaPreview.data.length, 16);
 tgaTexture.dispose();
 
+const bottomUpPreview = textureImageData({
+  image: {
+    width: 1,
+    height: 2,
+    data: new Uint8Array([255, 0, 0, 0, 0, 255]),
+  },
+  userData: { dsh3dSourceBottomUp: true },
+});
+assert.deepEqual([...bottomUpPreview.data], [0, 0, 255, 255, 255, 0, 0, 255]);
+
 // The workspace loader must return a DataTexture for raw formats; a plain
 // Texture with a data image is uploaded as an image element and renders gray.
 globalThis.__DSH3DV_REQUIRE__ = {
@@ -120,15 +130,25 @@ globalThis.__DSH3DV_REQUIRE__ = {
     return textures[`tex-${match[1]}`];
   },
 };
+const tgaReads = [];
 const assets = createWorkspaceAssetLoader({
-  readFile: async () => ({ ok: true, value: { data: tga } }),
+  readFile: async (path) => {
+    tgaReads.push(path);
+    return { ok: true, value: { data: tga } };
+  },
   onWarn: () => {},
 });
-const workspaceTga = assets.manager.getHandler('test.tga').load('test.tga');
+const tgaHandler = assets.manager.getHandler('test.tga');
+const workspaceTga = tgaHandler.load('test.tga');
+const workspaceTgaCopy = tgaHandler.load('test.tga');
 await assets.settle();
+assert.equal(tgaReads.length, 1, 'a repeated raw texture path must be read once');
+assert.notEqual(workspaceTga, workspaceTgaCopy, 'each material gets its own texture');
 assert.equal(workspaceTga.isDataTexture, true);
 assert.equal(workspaceTga.image.width, 2);
+assert.equal(workspaceTgaCopy.isDataTexture, true);
 workspaceTga.dispose();
+workspaceTgaCopy.dispose();
 assets.dispose();
 
 // 4x4 flat Radiance RGBE (width < 8 uses the old non-RLE scanline format).

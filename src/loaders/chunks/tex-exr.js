@@ -29,6 +29,9 @@ export function decodeExr(buffer) {
   texture.magFilter = texData.magFilter ?? LinearFilter;
   texture.unpackAlignment = texData.unpackAlignment ?? 1;
   texture.userData.dsh3dHdr = true;
+  // Three's EXRLoader flips OpenEXR scanlines into a bottom-up DataTexture.
+  // The standalone preview needs to reverse them again before putImageData.
+  texture.userData.dsh3dSourceBottomUp = true;
   texture.needsUpdate = true;
   return texture;
 }
