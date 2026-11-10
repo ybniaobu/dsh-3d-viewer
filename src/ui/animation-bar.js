@@ -24,20 +24,9 @@ const h = React.createElement;
 export function AnimationBar({ view, clips, t }) {
   const [playing, setPlaying] = React.useState(true);
   const [index, setIndex] = React.useState(0);
-  const [time, setTime] = React.useState(0);
-
-  React.useEffect(() => {
-    view.setAnimationPlaying(playing);
-  }, [view, playing]);
-
-  React.useEffect(() => {
-    view.setAnimationClip(index);
-    setTime(0);
-  }, [view, index]);
-
-  React.useEffect(() => view.subscribeAnimation((state) => {
-    setTime(state.time);
-  }), [view]);
+  const progressRef = React.useRef(null);
+  const timeRef = React.useRef(null);
+  const lastSecondsRef = React.useRef(0);
 
   const currentClip = clips[Math.min(index, clips.length - 1)];
   const animationLabel = currentClip !== undefined && currentClip !== null
@@ -46,8 +35,31 @@ export function AnimationBar({ view, clips, t }) {
   const animationMax = Number.isFinite(currentClip?.duration)
     ? Math.max(Number(currentClip.duration), 0)
     : 0;
-  const currentSeconds = Math.min(Math.max(Number(time) || 0, 0), animationMax);
-  const timeLabel = `${formatSeconds(currentSeconds)}s / ${formatSeconds(animationMax)}s`;
+
+  const updateDisplay = (seconds) => {
+    const next = Math.min(Math.max(Number(seconds) || 0, 0), animationMax);
+    lastSecondsRef.current = next;
+    if (progressRef.current !== null) progressRef.current.value = String(next);
+    if (timeRef.current !== null) {
+      timeRef.current.textContent = `${formatSeconds(next)}s / ${formatSeconds(animationMax)}s`;
+    }
+  };
+
+  React.useEffect(() => {
+    view.setAnimationPlaying(playing);
+  }, [view, playing]);
+
+  React.useEffect(() => {
+    view.setAnimationClip(index);
+    updateDisplay(0);
+  }, [view, index]);
+
+  React.useEffect(() => view.subscribeAnimation((state) => {
+    updateDisplay(state.time);
+  }), [view, index, animationMax]);
+
+  const initialSeconds = lastSecondsRef.current;
+  const timeLabel = `${formatSeconds(initialSeconds)}s / ${formatSeconds(animationMax)}s`;
 
   return h('div', {
     className: 'dsh3dv-anim',
@@ -69,8 +81,8 @@ export function AnimationBar({ view, clips, t }) {
       value: index,
       'aria-label': t('animation'),
       onChange: (event) => {
+        updateDisplay(0);
         setIndex(Number(event.currentTarget.value));
-        setTime(0);
       },
     }, clips.map((clip, clipIndex) => h('option', {
       key: clipIndex,
@@ -80,16 +92,20 @@ export function AnimationBar({ view, clips, t }) {
   h('input', {
     type: 'range',
     className: 'dsh3dv-progress',
+    ref: progressRef,
     min: 0,
     max: Math.max(animationMax, 0.01),
     step: 0.01,
-    value: currentSeconds,
+    defaultValue: 0,
     'aria-label': t('animationProgress'),
     onChange: (event) => {
       const next = Number(event.currentTarget.value);
-      setTime(next);
+      updateDisplay(next);
       view.seekAnimation(next);
     },
   }),
-  h('span', { className: 'dsh3dv-anim-time' }, timeLabel));
+  h('span', {
+    className: 'dsh3dv-anim-time',
+    ref: timeRef,
+  }, timeLabel));
 }

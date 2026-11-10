@@ -6,7 +6,7 @@ used by this package.
 
 ## Three.js
 
-`client.js` bundles the following MIT-licensed Three.js code:
+`client.runtime.js` bundles the following MIT-licensed Three.js code:
 
 - Three.js core (`three`)
 - `FBXLoader`, `OBJLoader`, `MTLLoader`, `GLTFLoader`, `STLLoader`, `OrbitControls`, `HDRLoader`
@@ -45,7 +45,7 @@ attribution; the source links and license note are kept in
 [assets/hdri/LICENSE.md](assets/hdri/LICENSE.md) for provenance.
 The HDRIs ship as files in the package and are served at runtime by the
 plugin's Host route (`/dsh-3d-viewer/hdri/`); they are not embedded in
-`client.js`.
+`client.js` or `client.runtime.js`.
 
 ## React
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-3d-viewer",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Render FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures from the right Sidebar's workspace file tree in an orbitable view.",
   "keywords": [
     "dsh",

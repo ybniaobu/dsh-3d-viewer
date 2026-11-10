@@ -1,4 +1,4 @@
-/** Blender viewport tones; CSS maps them to #303030 and #f8f8f8. */
+/** Viewport tones mapped by CSS to #303030 and #f8f8f8. */
 const TONE_DARK = 'dark';
 const TONE_LIGHT = 'light';
 
@@ -39,16 +39,15 @@ function resolveTone(host) {
 }
 
 /**
- * Make the model viewport background follow DSH's current light/dark theme with
- * Blender's default viewport colors. The CSS rule uses a data attribute so no
- * inline style is needed.
+ * Make the model viewport background follow DSH's current light/dark theme. The
+ * CSS rule uses a data attribute so no inline style is needed.
  *
  * @param {HTMLElement} root Viewer root carrying the background.
  * @param {HTMLElement} host Viewer host inside that root.
  * @param {(tone: 'dark' | 'light') => void} [onTone] Called for the initial tone and every change.
  * @returns {() => void} Cleanup.
  */
-export function followBlenderBackground(root, host, onTone) {
+export function followViewportTone(root, host, onTone) {
   let disposed = false;
   let currentTone = null;
 

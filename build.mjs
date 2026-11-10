@@ -33,7 +33,7 @@ await esbuild.build({
 });
 
 const code = (await readFile(bundlePath, 'utf8')).trimEnd();
-const wrapped = `/*! dsh-3d-viewer | entry bundle: Three.js core, OrbitControls, HDRLoader and post-processing (MIT). FBX, OBJ, glTF/GLB and STL loaders are package-local lazy chunks. HDRIs ship as files and are served by the host route in index.js. See THIRD_PARTY_NOTICES.md for third-party licenses. */
+const wrapped = `/*! dsh-3d-viewer | UI entry bundle. The Three.js/scene/texture runtime and format loaders are package-local lazy chunks. HDRIs ship as files and are served by the host route in index.js. See THIRD_PARTY_NOTICES.md for third-party licenses. */
 window.__ModuleLoader__.load({
   id: ${JSON.stringify(pkg.name)},
   factory(require) {
@@ -48,6 +48,41 @@ ${code}
 
 await writeFile(resolve(distDir, 'client.js'), wrapped);
 console.log(`Built dist/client.js (${Buffer.byteLength(wrapped)} bytes) for ${pkg.name}.`);
+
+// The heavy 3D/texture runtime is loaded only when a preview opens. It owns
+// Three and installs the bridge consumed by the lazy format chunks.
+const runtimeBundle = resolve(root, '.build/runtime.cjs');
+await esbuild.build({
+  absWorkingDir: root,
+  entryPoints: [resolve(root, 'src/runtime.js')],
+  bundle: true,
+  format: 'cjs',
+  platform: 'browser',
+  target: ['chrome120', 'edge120'],
+  minify: true,
+  legalComments: 'none',
+  logLevel: 'warning',
+  define: {
+    __DSH3D_VIEWER_VERSION__: JSON.stringify(pkg.version),
+  },
+  outfile: runtimeBundle,
+});
+const runtimeCode = (await readFile(runtimeBundle, 'utf8')).trimEnd();
+const runtimeName = 'client.runtime.js';
+const runtimeWrapped = `/*! dsh-3d-viewer runtime chunk | bundles Three.js, scene, and texture preview support (MIT). See THIRD_PARTY_NOTICES.md. */
+window.__ModuleLoader__.load({
+  id: ${JSON.stringify(pkg.name)},
+  chunk: ${JSON.stringify(runtimeName)},
+  factory(require) {
+    var module = { exports: {} };
+    var exports = module.exports;
+${runtimeCode}
+    return module.exports;
+  },
+});
+`;
+await writeFile(resolve(distDir, runtimeName), runtimeWrapped);
+console.log(`Built dist/${runtimeName} (${Buffer.byteLength(runtimeWrapped)} bytes) for ${pkg.name}.`);
 
 // Format loaders are package-local chunks. They are self-contained CJS and
 // receive the entry bundle's Three instance through a tiny require shim, so a

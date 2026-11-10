@@ -1,17 +1,14 @@
-import * as THREE_BRIDGE from './loaders/three-bridge.js';
 import { FORMAT_ENTRIES } from './formats.js';
 import { TEXTURE_FORMAT_ENTRIES } from './texture-formats.js';
-import { parseFileAddress, readWorkspaceFile } from './loaders/workspace.js';
+import { parseFileAddress } from './loaders/address.js';
 import { VIEWER_COMPONENTS } from './ui/model-viewer.js';
 import { TEXTURE_VIEWER_COMPONENTS } from './ui/texture-viewer.js';
 import { en, zh } from './ui/dictionaries.js';
+import { loadViewerRuntime } from './ui/viewer-runtime.js';
 
 const NS = 'dsh3dViewer';
 const BODY_SLOT = 'sidebar.right.tab.document';
 
-// Format chunks are self-contained CJS scripts; they receive the chunk-sized
-// Three bridge through the wrapper installed by build.mjs.
-globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
 // workspace-files caps a single byte window at 2 MiB. Root files are read in
 // parallel windows so a large model is not serialized into one long request.
 const READ_CHUNK_BYTES = 2 * 1024 * 1024;
@@ -398,7 +395,10 @@ function registerPreview(ctx, t, entry, component) {
     locale: NS,
     inject: () => ({
       fallbackT: t,
-      readWorkspaceFile: (address, path, options) => readWorkspaceFile(ctx.remote, address, path, options),
+      readWorkspaceFile: async (address, path, options) => {
+        const runtime = await loadViewerRuntime();
+        return runtime.readWorkspaceFile(ctx.remote, address, path, options);
+      },
       loadBytes: (address, signal) => readDocumentBytes(ctx, address, signal),
     }),
   }, component)), `dsh-3d-viewer: ${entry.label} viewer body`);

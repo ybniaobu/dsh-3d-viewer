@@ -9,16 +9,17 @@ const KEY_OFFSET = new Vector3(-3.2, 5.0, 3.0);
  *   scene: import('three').Scene,
  *   center: import('three').Vector3,
  *   maxDimension: number,
- * }} options Target scene and model bounds.
+ *   shadowMapSize?: number,
+ * }} options Target scene, model bounds, and selected shadow resolution.
  * @returns {{ dispose: () => void }} Lighting controls.
  */
-export function createLighting({ scene, center, maxDimension }) {
+export function createLighting({ scene, center, maxDimension, shadowMapSize = 2048 }) {
   const key = new DirectionalLight(0xffffff, 5.0);
 
   key.position.copy(center).addScaledVector(KEY_OFFSET, maxDimension);
   key.target.position.copy(center);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   key.shadow.camera.left = -maxDimension * 2;
   key.shadow.camera.right = maxDimension * 2;
   key.shadow.camera.top = maxDimension * 2;

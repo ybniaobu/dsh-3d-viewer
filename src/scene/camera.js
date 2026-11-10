@@ -6,8 +6,24 @@ const scratchOffset = new Vector3();
 const scratchSpherical = new Spherical();
 
 /**
+ * Match the camera projection to the renderer's depth-buffer convention before
+ * the first render. Three normally applies this on the first draw, but the grid
+ * fog uniforms are computed earlier and need the final projection matrix.
+ *
+ * @param {import('three').PerspectiveCamera} camera Active camera.
+ * @param {boolean} reversedDepthBuffer Whether the renderer uses reversed depth.
+ * @returns {void}
+ */
+export function enableReversedDepth(camera, reversedDepthBuffer) {
+  if (reversedDepthBuffer !== true || camera.reversedDepth === true) return;
+  // Three exposes no setter; this mirrors WebGLRenderer's first-render update.
+  camera._reversedDepth = true;
+  camera.updateProjectionMatrix();
+}
+
+/**
  * Keep the near/far planes proportional to the current orbit distance so the
- * grid's projection-depth fog stays stable across zoom levels.
+ * grid's fog distance stays stable across zoom levels.
  *
  * @param {import('three').PerspectiveCamera} camera Active camera.
  * @param {number} distance Camera-to-target distance.

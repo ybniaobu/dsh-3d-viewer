@@ -88,11 +88,12 @@ void main() {
  * @param {{
  *   renderer: import('three').WebGLRenderer,
  *   scene: import('three').Scene,
- *   camera: import('three').PerspectiveCamera,
+ *   camera: import('three').Camera,
  *   width: number,
  *   height: number,
  *   pixelRatio: number,
- * }} options Renderer, scene, camera, and initial surface size.
+ *   samples?: number,
+ * }} options Renderer, scene, camera, initial surface size, and MSAA samples.
  * @returns {{
  *   render: (delta: number) => void,
  *   setSize: (width: number, height: number, pixelRatio: number) => boolean,
@@ -100,12 +101,21 @@ void main() {
  *   dispose: () => void,
  * }} Post-processing controls.
  */
-export function createPostProcessing({ renderer, scene, camera, width, height, pixelRatio }) {
+export function createPostProcessing({
+  renderer,
+  scene,
+  camera,
+  width,
+  height,
+  pixelRatio,
+  samples = 4,
+}) {
   const composer = new EffectComposer(renderer);
-  const samples = Math.min(4, renderer.capabilities.maxSamples || 0);
-  if (samples > 0) {
-    composer.renderTarget1.samples = samples;
-    composer.renderTarget2.samples = samples;
+  const maxSamples = renderer.capabilities.maxSamples || 0;
+  const activeSamples = Math.min(Math.max(Math.floor(samples), 0), maxSamples);
+  if (activeSamples > 0) {
+    composer.renderTarget1.samples = activeSamples;
+    composer.renderTarget2.samples = activeSamples;
   }
   composer.setPixelRatio(pixelRatio);
   composer.setSize(width, height);

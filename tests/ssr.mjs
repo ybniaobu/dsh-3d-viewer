@@ -109,11 +109,13 @@ const fakeView = {
   setAnimationClip: () => {},
   seekAnimation: () => {},
   subscribeAnimation: () => () => {},
+  subscribeCamera: () => () => {},
   setAutoRotate: () => {},
   setGrid: () => {},
   setEnvironment: () => {},
   setMaterialPreset: () => {},
   setWireframe: () => {},
+  setCameraView: () => {},
   invalidate: () => {},
   dispose: () => {},
 };
@@ -146,6 +148,9 @@ assert.deepEqual(rows, [
   ['Triangles', '40,370'],
 ]);
 assert.match(readyHtml, /data-dsh3d-format="obj"/);
+assert.match(readyHtml, /aria-label="viewFront"/);
+assert.match(readyHtml, /aria-label="viewTop"/);
+assert.doesNotMatch(readyHtml, /aria-label="front"/);
 assert.match(readyHtml, />OBJ</);
 assert.match(readyHtml, /\.dsh3dv-stats\{[^}]*flex-direction:column/);
 assert.match(readyHtml, /class="dsh3dv-top-actions"/);
@@ -170,6 +175,7 @@ assert.match(readyHtml, /data-dsh3d-animation/);
 assert.match(readyHtml, />Idle</);
 assert.match(readyHtml, /class="dsh3dv-progress"/);
 assert.match(readyHtml, />0\.00s \/ 2\.50s</);
+assert.match(readyHtml, /class="dsh3dv-axis"/);
 
 console.log('Server-render smoke test passed:', {
   markupBytes: Buffer.byteLength(loadingHtml),

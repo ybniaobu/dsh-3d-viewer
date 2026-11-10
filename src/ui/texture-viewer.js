@@ -1,9 +1,8 @@
 import * as React from 'react';
-import { decodeWorkspaceTexture } from '../loaders/workspace.js';
 import { StatusOverlay } from './chrome.js';
 import { CSS } from './styles.js';
 import { en } from './dictionaries.js';
-import { createWebGlPreview } from './texture-webgl.js';
+import { loadViewerRuntime } from './viewer-runtime.js';
 import {
   getCachedPreview,
   previewCacheBudget,
@@ -264,14 +263,14 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
  *   glPreview?: { render: (flipY: boolean) => void, dispose: () => void },
  * }} Preview metadata.
  */
-function drawTexture(canvas, texture) {
+function drawTexture(canvas, texture, runtime) {
   const image = texture.image;
   const width = image?.width;
   const height = image?.height;
   const bits = bitDepthFor(texture);
   if (texture.userData?.dsh3dHdr === true) {
     try {
-      const glPreview = createWebGlPreview(canvas, texture);
+      const glPreview = runtime.createWebGlPreview(canvas, texture);
       return { width, height, bits, glPreview };
     } catch {
       // Fall through to the CPU path when WebGL2 or the float upload is
@@ -321,7 +320,7 @@ function TextureViewer(props) {
     bits: 0,
   });
   const [attempt, setAttempt] = React.useState(0);
-  const [view, setView] = React.useState({ scale: 1, x: 0, y: 0 });
+  const [zoomed, setZoomed] = React.useState(false);
   const [flipY, setFlipY] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
   const canvasRef = React.useRef(null);
@@ -333,9 +332,50 @@ function TextureViewer(props) {
   const sourceImageRef = React.useRef(null);
   const flipYRef = React.useRef(false);
   const cacheTokenRef = React.useRef(0);
+  const viewRafRef = React.useRef(0);
+  const pendingViewRef = React.useRef(null);
+  if (pendingViewRef.current === null) {
+    pendingViewRef.current = { kind: '', x: 0, y: 0, delta: 0 };
+  }
+  const viewRef = React.useRef(null);
+  if (viewRef.current === null) {
+    viewRef.current = { scale: 1, x: 0, y: 0 };
+  }
+  const zoomedRef = React.useRef(false);
+  const zoomLabelRef = React.useRef(null);
   const loadBytesRef = React.useRef(typeof props.loadBytes === 'function' ? props.loadBytes : null);
   const addressRef = React.useRef(typeof props.resourceAddress === 'string' ? props.resourceAddress : null);
   const rendererRef = React.useRef(renderer);
+
+  loadBytesRef.current = typeof props.loadBytes === 'function' ? props.loadBytes : null;
+  addressRef.current = typeof props.resourceAddress === 'string' ? props.resourceAddress : null;
+  rendererRef.current = renderer;
+
+  // High-frequency pan/zoom stays outside React state. Writing the transform
+  // and zoom label directly avoids a new state object on every animation frame;
+  // React only re-renders when the zoomed flag crosses 1x.
+  const applyView = () => {
+    const current = viewRef.current;
+    if (canvasRef.current !== null) {
+      canvasRef.current.style.transform = `translate(${current.x}px, ${current.y}px) scale(${current.scale})`;
+    }
+    if (zoomLabelRef.current !== null) {
+      zoomLabelRef.current.textContent = `${Math.round(current.scale * 100)}%`;
+    }
+    const nextZoomed = current.scale > 1.001;
+    if (nextZoomed !== zoomedRef.current) {
+      zoomedRef.current = nextZoomed;
+      setZoomed(nextZoomed);
+    }
+  };
+
+  const resetView = () => {
+    const current = viewRef.current;
+    current.scale = 1;
+    current.x = 0;
+    current.y = 0;
+    applyView();
+  };
 
   loadBytesRef.current = typeof props.loadBytes === 'function' ? props.loadBytes : null;
   addressRef.current = typeof props.resourceAddress === 'string' ? props.resourceAddress : null;
@@ -353,7 +393,7 @@ function TextureViewer(props) {
       const cacheToken = (cacheTokenRef.current += 1);
       flipYRef.current = false;
       setState({ status: 'loading', failure: null, width: 0, height: 0, bits: 0 });
-      setView({ scale: 1, x: 0, y: 0 });
+      resetView();
       setFlipY(false);
       glPreviewRef.current?.dispose();
       glPreviewRef.current = null;
@@ -391,7 +431,7 @@ function TextureViewer(props) {
           glPreviewRef.current = null;
           sourceImageRef.current = null;
           activeRenderer?.loaded?.(version);
-          setView({ scale: 1, x: 0, y: 0 });
+          resetView();
           setFlipY(false);
           setState({
             status: 'ready',
@@ -403,7 +443,10 @@ function TextureViewer(props) {
           return;
         }
 
-        const texture = await decodeWorkspaceTexture(format, bytes, {
+        const runtime = await loadViewerRuntime();
+        if (disposed || controller.signal.aborted) return;
+
+        const texture = await runtime.decodeWorkspaceTexture(format, bytes, {
           signal: controller.signal,
         });
         if (disposed || controller.signal.aborted) {
@@ -411,13 +454,13 @@ function TextureViewer(props) {
           return;
         }
 
-        const info = drawTexture(canvasRef.current, texture);
+        const info = drawTexture(canvasRef.current, texture, runtime);
         texture.dispose();
         imageRef.current = info.image ?? null;
         glPreviewRef.current = info.glPreview ?? null;
         sourceImageRef.current = null;
         activeRenderer?.loaded?.(version);
-        setView({ scale: 1, x: 0, y: 0 });
+        resetView();
         setFlipY(false);
         setState({
           status: 'ready',
@@ -504,7 +547,42 @@ function TextureViewer(props) {
   React.useEffect(() => () => {
     glPreviewRef.current?.dispose();
     glPreviewRef.current = null;
+    if (viewRafRef.current !== 0) {
+      cancelAnimationFrame(viewRafRef.current);
+      viewRafRef.current = 0;
+    }
   }, []);
+
+  const scheduleViewFrame = () => {
+    if (viewRafRef.current !== 0) return;
+    viewRafRef.current = requestAnimationFrame(() => {
+      viewRafRef.current = 0;
+      const pending = pendingViewRef.current;
+      const current = viewRef.current;
+      if (pending.kind === 'drag') {
+        pending.kind = '';
+        current.x = pending.x;
+        current.y = pending.y;
+        applyView();
+      } else if (pending.kind === 'wheel') {
+        const delta = pending.delta;
+        pending.kind = '';
+        pending.delta = 0;
+        const next = Math.min(
+          MAX_TEXTURE_ZOOM,
+          Math.max(1, current.scale * Math.exp(-delta * 0.0015)),
+        );
+        if (next <= 1.0001) {
+          current.scale = 1;
+          current.x = 0;
+          current.y = 0;
+        } else {
+          current.scale = next;
+        }
+        applyView();
+      }
+    });
+  };
 
   React.useEffect(() => {
     if (state.status !== 'ready') return undefined;
@@ -513,17 +591,10 @@ function TextureViewer(props) {
 
     const onWheel = (event) => {
       event.preventDefault();
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : 1);
-
-      setView((current) => {
-        const next = Math.min(
-          MAX_TEXTURE_ZOOM,
-          Math.max(1, current.scale * Math.exp(-delta * 0.0015)),
-        );
-        if (Math.abs(next - current.scale) < 0.0001) return current;
-        if (next <= 1.0001) return { scale: 1, x: 0, y: 0 };
-        return { ...current, scale: next };
-      });
+      const pending = pendingViewRef.current;
+      pending.kind = 'wheel';
+      pending.delta += event.deltaY * (event.deltaMode === 1 ? 16 : 1);
+      scheduleViewFrame();
     };
 
     stage.addEventListener('wheel', onWheel, { passive: false });
@@ -531,9 +602,6 @@ function TextureViewer(props) {
   }, [state.status]);
 
   const ready = state.status === 'ready';
-  const zoomed = view.scale > 1.001;
-  const zoomPercent = Math.round(view.scale * 100);
-  const resetView = () => setView({ scale: 1, x: 0, y: 0 });
 
   const endDrag = (event) => {
     if (dragRef.current === null) return;
@@ -546,15 +614,16 @@ function TextureViewer(props) {
   };
 
   const handlePointerDown = (event) => {
-    if (!zoomed || event.button !== 0) return;
+    if (viewRef.current.scale <= 1.001 || event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    const current = viewRef.current;
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      x: view.x,
-      y: view.y,
+      x: current.x,
+      y: current.y,
     };
     setDragging(true);
   };
@@ -562,23 +631,29 @@ function TextureViewer(props) {
   const handlePointerMove = (event) => {
     const drag = dragRef.current;
     if (drag === null || drag.pointerId !== event.pointerId) return;
-    setView((current) => ({
-      ...current,
-      x: drag.x + event.clientX - drag.startX,
-      y: drag.y + event.clientY - drag.startY,
-    }));
+    const pending = pendingViewRef.current;
+    pending.kind = 'drag';
+    pending.x = drag.x + event.clientX - drag.startX;
+    pending.y = drag.y + event.clientY - drag.startY;
+    scheduleViewFrame();
   };
 
   const zoomBy = (factor) => {
-    setView((current) => {
-      const next = Math.min(MAX_TEXTURE_ZOOM, Math.max(1, current.scale * factor));
-      if (next <= 1.0001) return { scale: 1, x: 0, y: 0 };
-      return { ...current, scale: next };
-    });
+    const current = viewRef.current;
+    const next = Math.min(MAX_TEXTURE_ZOOM, Math.max(1, current.scale * factor));
+    if (next <= 1.0001) {
+      current.scale = 1;
+      current.x = 0;
+      current.y = 0;
+    } else {
+      current.scale = next;
+    }
+    applyView();
   };
 
   const handleStageKeyDown = (event) => {
     if (!ready) return;
+    const isZoomed = viewRef.current.scale > 1.001;
     let handled = true;
     switch (event.key) {
       case '+':
@@ -594,20 +669,32 @@ function TextureViewer(props) {
         resetView();
         break;
       case 'ArrowLeft':
-        if (!zoomed) handled = false;
-        else setView((current) => ({ ...current, x: current.x + KEY_PAN_STEP }));
+        if (!isZoomed) handled = false;
+        else {
+          viewRef.current.x += KEY_PAN_STEP;
+          applyView();
+        }
         break;
       case 'ArrowRight':
-        if (!zoomed) handled = false;
-        else setView((current) => ({ ...current, x: current.x - KEY_PAN_STEP }));
+        if (!isZoomed) handled = false;
+        else {
+          viewRef.current.x -= KEY_PAN_STEP;
+          applyView();
+        }
         break;
       case 'ArrowUp':
-        if (!zoomed) handled = false;
-        else setView((current) => ({ ...current, y: current.y + KEY_PAN_STEP }));
+        if (!isZoomed) handled = false;
+        else {
+          viewRef.current.y += KEY_PAN_STEP;
+          applyView();
+        }
         break;
       case 'ArrowDown':
-        if (!zoomed) handled = false;
-        else setView((current) => ({ ...current, y: current.y - KEY_PAN_STEP }));
+        if (!isZoomed) handled = false;
+        else {
+          viewRef.current.y -= KEY_PAN_STEP;
+          applyView();
+        }
         break;
       default:
         handled = false;
@@ -643,7 +730,6 @@ function TextureViewer(props) {
     role: 'img',
     'aria-label': `${format.toUpperCase()} texture`,
     style: {
-      transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
       visibility: ready ? 'visible' : 'hidden',
     },
   })),
@@ -675,7 +761,8 @@ function TextureViewer(props) {
         : null,
       ready
         ? h('span', { className: 'dsh3dv-badge' },
-          `${state.width} × ${state.height} · ${state.bits}-bit · ${zoomPercent}%`)
+          `${state.width} × ${state.height} · ${state.bits}-bit · `,
+          h('span', { ref: zoomLabelRef }, '100%'))
         : null)),
   h(StatusOverlay, {
     status: state.status,

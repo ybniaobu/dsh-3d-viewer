@@ -18,9 +18,10 @@ import {
   warn,
 } from '../bytes.js';
 import { asyncChunk } from './chunk-require.js';
-import { decodeTextureInWorker } from './texture-worker-client.js';
+import { parseFileAddress } from './address.js';
 
-const FILE_ADDRESS_PREFIX = 'dsh-resource://file/';
+export { parseFileAddress } from './address.js';
+
 // Any relative/absolute local path can be an MTL/FBX texture. Schemes are
 // excluded so data/blob/http URLs keep using Three's normal loaders.
 const WORKSPACE_TEXTURE_PATH = /^(?!data:|blob:|https?:|file:|\/\/).+$/i;
@@ -91,7 +92,13 @@ async function decodeWorkspaceTextureOnMainThread(format, data) {
  * @returns {Promise<Texture>} Decoded texture.
  */
 export async function decodeWorkspaceTexture(format, data, options = {}) {
-  return decodeTextureInWorker(format, data, decodeWorkspaceTextureOnMainThread, options);
+  // The runtime chunk owns the worker client; format chunks and standalone
+  // tests can still decode on the main thread when that service is absent.
+  const decodeInWorker = globalThis.__DSH3DV_TEXTURE_WORKER__?.decodeTextureInWorker;
+  if (typeof decodeInWorker === 'function') {
+    return decodeInWorker(format, data, decodeWorkspaceTextureOnMainThread, options);
+  }
+  return decodeWorkspaceTextureOnMainThread(format, data, options);
 }
 
 /**
@@ -135,25 +142,6 @@ function adoptTexture(target, source, disposeSource = true) {
  * @param {unknown} address Candidate resource address.
  * @returns {{ scope: 'session', sessionId: string, path: string } | undefined} Parsed session file address.
  */
-export function parseFileAddress(address) {
-  if (typeof address !== 'string' || !address.startsWith(FILE_ADDRESS_PREFIX)) return undefined;
-
-  try {
-    const end = address.search(/[?#]/);
-    const [scope, ...rest] = address.slice(FILE_ADDRESS_PREFIX.length, end === -1 ? undefined : end).split('/');
-    if (scope !== 'session') return undefined;
-    const [id, ...segments] = rest;
-    if (id === undefined || id === '' || segments.length === 0) return undefined;
-    return {
-      scope: 'session',
-      sessionId: decodeURIComponent(id),
-      path: segments.map(decodeURIComponent).join('/'),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * Read a sibling workspace file through the DSH workspace-files Remote.
  *

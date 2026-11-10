@@ -18,17 +18,37 @@ body[data-ds-dark-theme] .dsh3dv-root,.dsh3dv-root[data-dsh3d-tone="dark"]{--dsh
 .dsh3dv-canvas:active{cursor:grabbing}
 .dsh3dv-canvas:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
 .dsh3dv-top{position:absolute;top:10px;right:10px;left:10px;z-index:20;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;pointer-events:none}
-.dsh3dv-top-actions{display:flex;align-items:center;gap:6px;min-width:0;pointer-events:none}
+.dsh3dv-top-actions{display:flex;align-items:flex-start;gap:6px;min-width:0;pointer-events:none}
 .dsh3dv-badge,.dsh3dv-stats,.dsh3dv-hint{pointer-events:none}
 .dsh3dv-toolbar{pointer-events:auto}
 .dsh3dv-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px 4px 7px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--dsh3dv-overlay-bg);color:var(--dsw-alias-label-secondary);font-size:var(--dsh3dv-label-size);font-weight:var(--dsh3dv-label-weight);letter-spacing:.03em;line-height:1;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .dsh3dv-badge svg{width:13px;height:13px}
 .dsh3dv-toolbar{display:flex;gap:2px;padding:3px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsh3dv-overlay-bg);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.dsh3dv-toolbar-stack{display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:auto}
+.dsh3dv-axis{display:block;width:88px;height:88px;overflow:visible;pointer-events:none;user-select:none;-webkit-user-select:none;touch-action:none}
+.dsh3dv-axis-drag-surface{fill:transparent;pointer-events:all;cursor:grab}
+.dsh3dv-axis:active .dsh3dv-axis-drag-surface{cursor:grabbing}
+.dsh3dv-axis-end{pointer-events:auto;cursor:pointer;outline:none}
+.dsh3dv-axis-line{pointer-events:none;stroke-width:1.6;stroke-linecap:round}
+.dsh3dv-axis-line--x{stroke:#d85b5b}
+.dsh3dv-axis-line--y{stroke:#4e9d69}
+.dsh3dv-axis-line--z{stroke:#567fd1}
+.dsh3dv-axis-dot--x{fill:#d85b5b}
+.dsh3dv-axis-dot--y{fill:#4e9d69}
+.dsh3dv-axis-dot--z{fill:#567fd1}
+.dsh3dv-axis-negative-dot{fill:var(--dsh3dv-overlay-bg);stroke-width:1.2}
+.dsh3dv-axis-end--negative .dsh3dv-axis-dot--x{stroke:#d85b5b}
+.dsh3dv-axis-end--negative .dsh3dv-axis-dot--y{stroke:#4e9d69}
+.dsh3dv-axis-end--negative .dsh3dv-axis-dot--z{stroke:#567fd1}
+.dsh3dv-axis-label{fill:var(--dsw-alias-label-secondary);font-size:9px;font-weight:700;text-anchor:middle;dominant-baseline:middle}
+.dsh3dv-axis-end:hover .dsh3dv-axis-dot{stroke:var(--dsw-alias-brand-primary);stroke-width:2}
+.dsh3dv-axis-end:focus-visible .dsh3dv-axis-dot{stroke:var(--dsw-alias-brand-primary);stroke-width:2}
 .dsh3dv-tool{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .dsh3dv-tool:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .dsh3dv-tool[aria-pressed="true"]{color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
 .dsh3dv-tool:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
 .dsh3dv-tool svg{width:15px;height:15px}
+.dsh3dv-tool--auto-rotate .dsh3dv-auto-rotate-glyph{display:flex;align-items:center;justify-content:center;width:17px;height:17px;font-family:"Segoe UI Symbol","Segoe UI",sans-serif;font-size:20px;font-weight:400;line-height:1;transform:translateX(2px) translateY(-.5px) rotate(90deg)}
 .dsh3dv-hud{position:absolute;top:46px;left:10px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:calc(100% - 20px);pointer-events:none}
 .dsh3dv-stats{display:flex;flex-direction:column;gap:2px;min-width:146px;max-width:100%;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsh3dv-overlay-bg);color:var(--dsw-alias-label-secondary);font-size:var(--dsh3dv-label-size);font-weight:var(--dsh3dv-label-weight);line-height:1.45;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .dsh3dv-stat{display:flex;align-items:baseline;justify-content:space-between;gap:16px;white-space:nowrap}

@@ -1,9 +1,10 @@
 # Releasing
 
 One commit produces both artifacts: the GitHub Release tarball and the npm
-package. They must share the same `dist/client.js`, and that bundle must match
-the version in `package.json` — the version is embedded in the HDRI route's
-cache-busting query, so a version bump always requires a rebuild.
+package. They must share the same `dist/client.js`, `dist/client.runtime.js`,
+and lazy chunks, and those bundles must match the version in `package.json` —
+the version is embedded in the HDRI route's cache-busting query, so a version
+bump always requires a rebuild.
 
 ## 1. Bump, build, test
 
@@ -14,8 +15,8 @@ npm run build                                     # rebuilds dist/client.js + ch
 npm test
 ```
 
-Commit `package.json`, `package-lock.json`, and the rebuilt `dist/client.js`
-plus its `dist/client.*.js` chunks together.
+Commit `package.json`, `package-lock.json`, and the rebuilt `dist/client.js`,
+`dist/client.runtime.js`, plus all lazy chunks together.
 
 ## 2. Push to main
 
