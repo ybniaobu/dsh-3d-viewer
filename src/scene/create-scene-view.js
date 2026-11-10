@@ -2,29 +2,44 @@ import { PerspectiveCamera, Scene, Spherical, Vector3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { disposeObject } from '../model.js';
 import { createAnimationController } from './animation.js';
-import { frameModel, isOrbitKey, orbitByKey, updateClipPlanes } from './camera.js';
+import {
+  enableReversedDepth,
+  frameModel,
+  isOrbitKey,
+  orbitByKey,
+  updateClipPlanes,
+} from './camera.js';
 import { DEFAULT_ENVIRONMENT, createEnvironment } from './environment.js';
 import { createGround } from './ground.js';
 import { createLighting } from './lighting.js';
 import { createMaterialController } from './materials.js';
 import { createPostProcessing } from './postprocessing.js';
+import { detectQualityProfile, pixelRatioFor } from './quality.js';
 import { createRenderLoop } from './render-loop.js';
 import {
   configureViewerRenderer,
   rendererPool,
 } from './renderer-pool.js';
-import { followBlenderBackground } from './theme-background.js';
+import { followViewportTone } from './theme-background.js';
 
-const MAX_PIXEL_RATIO = 2;
 const AUTO_ROTATE_SECONDS = 15;
 // Positive theta moves the camera clockwise when viewed from above.
 const AUTO_ROTATE_RADIANS_PER_SECOND = (Math.PI * 2) / AUTO_ROTATE_SECONDS;
-
-/** Device pixel ratio, clamped so 4K/5K displays do not quadruple the cost. */
-function readPixelRatio() {
-  return Math.min(globalThis.devicePixelRatio || 1, MAX_PIXEL_RATIO);
-}
-
+const DRAG_RADIANS_PER_PIXEL = Math.PI / 400;
+const PERSPECTIVE_FOV = 38;
+const VIEW_UP = Object.freeze(new Vector3(0, 1, 0));
+const CAMERA_VIEWS = Object.freeze({
+  isometric: Object.freeze({
+    direction: new Vector3(1, 0.55, 1.3).normalize(),
+    up: VIEW_UP,
+  }),
+  front: Object.freeze({ direction: new Vector3(0, 0, 1), up: VIEW_UP }),
+  back: Object.freeze({ direction: new Vector3(0, 0, -1), up: VIEW_UP }),
+  right: Object.freeze({ direction: new Vector3(1, 0, 0), up: VIEW_UP }),
+  left: Object.freeze({ direction: new Vector3(-1, 0, 0), up: VIEW_UP }),
+  top: Object.freeze({ direction: new Vector3(0, 1, 0), up: VIEW_UP }),
+  bottom: Object.freeze({ direction: new Vector3(0, -1, 0), up: VIEW_UP }),
+});
 /**
  * Attach a disposable, orbitable Three.js view to a host element.
  *
@@ -37,9 +52,12 @@ function readPixelRatio() {
  * @param {import('three').Object3D} object Parsed FBX graph.
  * @param {ReturnType<import('../model.js').collectModelStats>} stats Model bounds and counts.
  * @param {{ ariaLabel?: string, environment?: string }} [options] Localized accessibility text and initial IBL environment.
+ * Animation listeners receive a reused state object; read it synchronously.
+ * Camera listeners likewise receive a reused quaternion object.
  * @returns {{
  *   animations: Array<{ name: string, duration: number }>,
  *   subscribeAnimation: (listener: (state: { time: number, duration: number, index: number, playing: boolean }) => void) => () => void,
+ *   subscribeCamera: (listener: (quaternion: { x: number, y: number, z: number, w: number }) => void) => () => void,
  *   setAnimationPlaying: (enabled: boolean) => void,
  *   setAnimationClip: (index: number) => void,
  *   seekAnimation: (seconds: number) => void,
@@ -48,6 +66,8 @@ function readPixelRatio() {
  *   setEnvironment: (id: string) => boolean,
  *   setMaterialPreset: (id: string) => boolean,
  *   setWireframe: (enabled: boolean) => boolean,
+ *   setCameraView: (name: 'isometric' | 'front' | 'back' | 'right' | 'left' | 'top' | 'bottom') => boolean,
+ *   rotateByPixels: (dx: number, dy: number) => void,
  *   reset: () => void,
  *   invalidate: () => void,
  *   paint: () => void,
@@ -72,16 +92,33 @@ export function createSceneView(host, object, stats, options = {}) {
 
   const initialWidth = Math.max(host.clientWidth, 1);
   const initialHeight = Math.max(host.clientHeight, 1);
-  const initialPixelRatio = readPixelRatio();
+  const quality = detectQualityProfile();
+  const initialPixelRatio = pixelRatioFor(
+    quality,
+    initialWidth,
+    initialHeight,
+    globalThis.devicePixelRatio,
+  );
 
   renderer.setPixelRatio(initialPixelRatio);
   renderer.setSize(initialWidth, initialHeight, false);
 
   const scene = new Scene();
-  const camera = new PerspectiveCamera(38, initialWidth / initialHeight, 0.1, 1000);
+  const camera = new PerspectiveCamera(
+    PERSPECTIVE_FOV,
+    initialWidth / initialHeight,
+    0.1,
+    1000,
+  );
+  enableReversedDepth(camera, renderer.capabilities.reversedDepthBuffer);
   const maxDimension = stats.maxDimension > 0 ? stats.maxDimension : 1;
 
-  const lighting = createLighting({ scene, center: stats.center, maxDimension });
+  const lighting = createLighting({
+    scene,
+    center: stats.center,
+    maxDimension,
+    shadowMapSize: quality.shadowMapSize,
+  });
   scene.add(object);
 
   const materials = createMaterialController(object);
@@ -90,9 +127,12 @@ export function createSceneView(host, object, stats, options = {}) {
     scene,
     stats,
     maxDimension,
-    maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+    maxAnisotropy: Math.min(
+      renderer.capabilities.getMaxAnisotropy(),
+      quality.maxAnisotropy,
+    ),
   });
-  const stopTheme = followBlenderBackground(
+  const stopTheme = followViewportTone(
     host.closest?.('.dsh3dv-root') ?? host,
     host,
     (tone) => {
@@ -104,6 +144,8 @@ export function createSceneView(host, object, stats, options = {}) {
   );
 
   const animationListeners = new Set();
+  const cameraListeners = new Set();
+  const cameraState = { x: 0, y: 0, z: 0, w: 1 };
   const animation = createAnimationController(object, {
     onTick(state) {
       for (const listener of animationListeners) {
@@ -123,6 +165,7 @@ export function createSceneView(host, object, stats, options = {}) {
     width: initialWidth,
     height: initialHeight,
     pixelRatio: initialPixelRatio,
+    samples: quality.samples,
   });
 
   const controls = new OrbitControls(camera, canvas);
@@ -143,14 +186,13 @@ export function createSceneView(host, object, stats, options = {}) {
   const autoOffset = new Vector3();
   const autoSpherical = new Spherical();
   const autoPosition = new Vector3();
+  const dragOffset = new Vector3();
+  const dragSpherical = new Spherical();
   let disposed = false;
   let onScreen = true;
   let lastWidth = 0;
   let lastHeight = 0;
   let lastPixelRatio = 0;
-  let lastSyncDistance = Number.NaN;
-  let lastSyncTargetX = Number.NaN;
-  let lastSyncTargetZ = Number.NaN;
   let resizeObserver;
   let intersectionObserver;
 
@@ -169,6 +211,22 @@ export function createSceneView(host, object, stats, options = {}) {
     autoPosition.setFromSphericalCoords(autoRadius, autoPhi, theta).add(controls.target);
     camera.position.copy(autoPosition);
     camera.lookAt(controls.target);
+    emitCamera();
+  }
+
+  function emitCamera() {
+    const quaternion = camera.quaternion;
+    cameraState.x = quaternion.x;
+    cameraState.y = quaternion.y;
+    cameraState.z = quaternion.z;
+    cameraState.w = quaternion.w;
+    for (const listener of cameraListeners) {
+      try {
+        listener(cameraState);
+      } catch (error) {
+        console.error('[dsh-3d-viewer] Camera listener failed.', error);
+      }
+    }
   }
 
   loop = createRenderLoop((delta, timestamp) => {
@@ -201,27 +259,28 @@ export function createSceneView(host, object, stats, options = {}) {
   });
   environment.set(options.environment ?? DEFAULT_ENVIRONMENT);
 
+  // The grid follows the orbit target; world-space UV keeps its pattern fixed
+  // to the world while the plane moves. Only a target or distance change needs
+  // to refresh the grid and clip planes.
+  let lastSyncDistance = Number.NaN;
+  let lastTargetX = Number.NaN;
+  let lastTargetZ = Number.NaN;
+
   function syncView() {
     const distance = Math.max(camera.position.distanceTo(controls.target), maxDimension * 0.05);
-    const targetX = controls.target.x;
-    const targetZ = controls.target.z;
-
-    // Auto-rotation changes the camera orientation but not its distance or
-    // target. Use a small tolerance: OrbitControls' spherical integration can
-    // leave tiny floating-point differences, and updating the clip planes and
-    // grid uniforms every frame makes the grid visibly tremble.
     const tolerance = Math.max(maxDimension * 1e-6, 1e-9);
-    if (Math.abs(distance - lastSyncDistance) <= tolerance
-      && Math.abs(targetX - lastSyncTargetX) <= tolerance
-      && Math.abs(targetZ - lastSyncTargetZ) <= tolerance) {
-      return;
-    }
-    lastSyncDistance = distance;
-    lastSyncTargetX = targetX;
-    lastSyncTargetZ = targetZ;
+    const targetMoved = !Number.isFinite(lastTargetX)
+      || !Number.isFinite(lastTargetZ)
+      || Math.hypot(controls.target.x - lastTargetX, controls.target.z - lastTargetZ) > tolerance;
+    const distanceChanged = !Number.isFinite(lastSyncDistance)
+      || Math.abs(distance - lastSyncDistance) > tolerance;
+    if (!targetMoved && !distanceChanged) return;
 
+    lastSyncDistance = distance;
+    lastTargetX = controls.target.x;
+    lastTargetZ = controls.target.z;
     updateClipPlanes(camera, distance, maxDimension);
-    ground.update(camera, controls.target, distance);
+    ground.update(controls.target, distance);
   }
 
   function updateLoop() {
@@ -247,6 +306,7 @@ export function createSceneView(host, object, stats, options = {}) {
     // Auto-rotate no longer goes through OrbitControls, so every change event
     // here comes from a user interaction (orbit, zoom, or pan).
     syncView();
+    emitCamera();
     loop.invalidate();
   }
 
@@ -255,7 +315,12 @@ export function createSceneView(host, object, stats, options = {}) {
 
     const width = Math.max(host.clientWidth, 1);
     const height = Math.max(host.clientHeight, 1);
-    const pixelRatio = readPixelRatio();
+    const pixelRatio = pixelRatioFor(
+      quality,
+      width,
+      height,
+      globalThis.devicePixelRatio,
+    );
     if (width === lastWidth && height === lastHeight && pixelRatio === lastPixelRatio) return;
 
     const pixelRatioChanged = pixelRatio !== lastPixelRatio;
@@ -280,6 +345,7 @@ export function createSceneView(host, object, stats, options = {}) {
     event.preventDefault();
     orbitByKey(camera, controls, event.key);
     if (autoRotate) beginAutoRotate();
+    emitCamera();
     loop.invalidate();
   }
 
@@ -310,6 +376,52 @@ export function createSceneView(host, object, stats, options = {}) {
     return true;
   }
 
+  function setCameraView(name) {
+    const preset = CAMERA_VIEWS[name];
+    if (preset === undefined) return false;
+
+    const distance = Math.max(
+      camera.position.distanceTo(controls.target),
+      maxDimension * 0.05,
+    );
+    camera.up.copy(preset.up);
+    camera.position.copy(controls.target).addScaledVector(preset.direction, distance);
+    camera.lookAt(controls.target);
+    camera.updateMatrixWorld();
+
+    const previousMinPolar = controls.minPolarAngle;
+    const previousMaxPolar = controls.maxPolarAngle;
+    if (name === 'top') controls.minPolarAngle = 0;
+    if (name === 'bottom') controls.maxPolarAngle = Math.PI;
+    controls.update();
+    controls.minPolarAngle = previousMinPolar;
+    controls.maxPolarAngle = previousMaxPolar;
+    if (autoRotate) beginAutoRotate();
+    emitCamera();
+    loop.invalidate();
+    return true;
+  }
+
+  function rotateByPixels(dx, dy) {
+    if (disposed) return;
+
+    dragOffset.copy(camera.position).sub(controls.target);
+    dragSpherical.setFromVector3(dragOffset);
+    dragSpherical.theta -= dx * DRAG_RADIANS_PER_PIXEL;
+    dragSpherical.phi = Math.min(
+      controls.maxPolarAngle,
+      Math.max(controls.minPolarAngle, dragSpherical.phi - dy * DRAG_RADIANS_PER_PIXEL),
+    );
+    camera.up.copy(VIEW_UP);
+    camera.position.copy(controls.target)
+      .add(dragOffset.setFromSpherical(dragSpherical));
+    camera.lookAt(controls.target);
+    camera.updateMatrixWorld();
+    if (autoRotate) beginAutoRotate();
+    emitCamera();
+    syncView();
+    loop.invalidate();
+  }
   function setEnvironment(id) {
     if (!environment.set(id)) return false;
     loop.invalidate();
@@ -354,10 +466,26 @@ export function createSceneView(host, object, stats, options = {}) {
     };
   }
 
+  function subscribeCamera(listener) {
+    if (typeof listener !== 'function' || disposed) return () => {};
+
+    cameraListeners.add(listener);
+    emitCamera();
+    return () => {
+      cameraListeners.delete(listener);
+    };
+  }
+
   function reset() {
+    camera.up.copy(VIEW_UP);
     frameModel(camera, controls, stats, maxDimension);
+    lastSyncDistance = Number.NaN;
+    lastTargetX = Number.NaN;
+    lastTargetZ = Number.NaN;
+    controls.update();
     if (autoRotate) beginAutoRotate();
     syncView();
+    emitCamera();
     loop.invalidate();
   }
 
@@ -398,6 +526,7 @@ export function createSceneView(host, object, stats, options = {}) {
     canvas.removeEventListener('keydown', onKeyDown);
     canvas.removeEventListener('pointerdown', onPointerDown);
     animationListeners.clear();
+    cameraListeners.clear();
 
     animation.dispose();
     materials.dispose();
@@ -444,6 +573,7 @@ export function createSceneView(host, object, stats, options = {}) {
   return {
     animations: animation.animations,
     subscribeAnimation,
+    subscribeCamera,
     setAnimationPlaying,
     setAnimationClip,
     seekAnimation,
@@ -452,6 +582,8 @@ export function createSceneView(host, object, stats, options = {}) {
     setEnvironment,
     setMaterialPreset,
     setWireframe,
+    setCameraView,
+    rotateByPixels,
     reset,
     invalidate,
     paint,

@@ -12,7 +12,6 @@ import {
   ShaderMaterial,
   ShadowMaterial,
   UnsignedByteType,
-  Vector4,
 } from 'three';
 
 const GRID_TEXTURE_SIZE = 512;
@@ -22,12 +21,26 @@ const GRID_MAJOR_HALF_WIDTH_RATIO = 0.022;
 const GRID_TEXTURE_AA = 0.75;
 
 const GRID_VERTEX_SHADER = `
-varying vec3 vWorldPosition;
+uniform float uCameraDistance;
+uniform float uMaxDimension;
+uniform float uGridScale;
+
+varying vec2 vGridUv;
+varying float vViewDepth;
+varying float vFogStart;
+varying float vFogEnd;
 
 void main() {
   vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-  vWorldPosition = worldPosition.xyz;
-  gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  vec4 viewPosition = viewMatrix * worldPosition;
+
+  vGridUv = worldPosition.xz * uGridScale;
+  vViewDepth = -viewPosition.z;
+  gl_Position = projectionMatrix * viewPosition;
+
+  float fogEnd = min(uCameraDistance * 5.0, uMaxDimension * 1000.0);
+  vFogStart = min(uCameraDistance * 1.5, fogEnd * 0.3);
+  vFogEnd = fogEnd;
 }
 `;
 
@@ -35,27 +48,21 @@ const GRID_FRAGMENT_SHADER = `
 uniform sampler2D uGridMap;
 uniform vec3 uColor;
 uniform vec3 uFogColor;
-uniform float uGridScale;
 uniform float uMinorAlpha;
 uniform float uMajorAlpha;
-uniform float uFogStart;
-uniform float uFogEnd;
 
-varying vec3 vWorldPosition;
+varying vec2 vGridUv;
+varying float vViewDepth;
+varying float vFogStart;
+varying float vFogEnd;
 
 void main() {
-  // One normalized projection-depth factor drives fog color, transparency,
-  // and the final disappearance together.
-  float depthT = clamp(
-    (gl_FragCoord.z - uFogStart) / max(uFogEnd - uFogStart, 1e-6),
-    0.0,
-    1.0
-  );
+  float fogSpan = max(vFogEnd - vFogStart, 1e-6);
+  float depthT = clamp((vViewDepth - vFogStart) / fogSpan, 0.0, 1.0);
   if (depthT >= 0.998) discard;
 
   float opacity = 1.0 - depthT;
-  vec2 gridUv = vWorldPosition.xz * uGridScale;
-  vec2 lines = texture2D(uGridMap, gridUv).rg;
+  vec2 lines = texture2D(uGridMap, vGridUv).rg;
   float alpha = max(lines.r * uMinorAlpha, lines.g * uMajorAlpha) * opacity;
   vec3 color = mix(uColor, uFogColor, depthT);
 
@@ -64,8 +71,6 @@ void main() {
   #include <colorspace_fragment>
 }
 `;
-
-const depthProbe = new Vector4();
 
 /** Rasterized grid pixels, shared by every viewer on the page. */
 let gridPixelCache = null;
@@ -83,19 +88,6 @@ export function niceGridStep(size) {
   const normalized = raw / power;
   const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
   return multiplier * power;
-}
-
-/**
- * Convert a camera-space distance into the projection-window depth used by the
- * grid shader. The value is independent of the viewport size.
- *
- * @param {import('three').PerspectiveCamera} camera Active camera.
- * @param {number} viewDistance Distance from the camera along -Z.
- * @returns {number} Depth in [0, 1].
- */
-function projectionWindowDepth(camera, viewDistance) {
-  depthProbe.set(0, 0, -viewDistance, 1).applyMatrix4(camera.projectionMatrix);
-  return (depthProbe.z / depthProbe.w) * 0.5 + 0.5;
 }
 
 /**
@@ -192,21 +184,26 @@ function createGridTexture(anisotropy) {
  *   maxAnisotropy?: number,
  * }} options Target scene, model bounds, and renderer anisotropy support.
  * @returns {{
- *   update: (camera: import('three').PerspectiveCamera, target: import('three').Vector3, distance: number) => void,
+ *   update: (target: import('three').Vector3, distance: number) => void,
  *   setGridVisible: (visible: boolean) => boolean,
  *   setShadowVisible: (visible: boolean) => boolean,
  *   setFogColor: (color: number) => boolean,
  *   dispose: () => void,
  * }} Ground controls.
  */
-export function createGround({ scene, stats, maxDimension, maxAnisotropy = 1 }) {
+export function createGround({
+  scene,
+  stats,
+  maxDimension,
+  maxAnisotropy = 1,
+}) {
   const floorY = Number.isFinite(stats.box.min.y)
     ? stats.box.min.y - maxDimension * 0.003
     : -maxDimension * 0.003;
   const gridCell = niceGridStep(maxDimension);
   const gridTexture = createGridTexture(maxAnisotropy);
-
-  const gridGeometry = new PlaneGeometry(maxDimension * 10000, maxDimension * 10000);
+  const gridSize = maxDimension * 2500;
+  const gridGeometry = new PlaneGeometry(gridSize, gridSize, 8, 8);
   gridGeometry.rotateX(-Math.PI / 2);
   const gridUniforms = {
     uGridMap: { value: gridTexture },
@@ -215,8 +212,8 @@ export function createGround({ scene, stats, maxDimension, maxAnisotropy = 1 }) 
     uGridScale: { value: 1 / (gridCell * GRID_TEXTURE_CELLS) },
     uMinorAlpha: { value: 0.25 },
     uMajorAlpha: { value: 0.5 },
-    uFogStart: { value: 0.9 },
-    uFogEnd: { value: 0.99 },
+    uCameraDistance: { value: maxDimension * 2.5 },
+    uMaxDimension: { value: maxDimension },
   };
   const gridMaterial = new ShaderMaterial({
     uniforms: gridUniforms,
@@ -246,15 +243,13 @@ export function createGround({ scene, stats, maxDimension, maxAnisotropy = 1 }) 
   shadowPlane.renderOrder = 1;
   scene.add(shadowPlane);
 
-  function update(camera, target, distance) {
+  function update(target, distance) {
+    // Only the grid follows the orbit target. The shadow receiver stays on the
+    // model bounds so its shadow cannot slide out from under the model.
     grid.position.x = target.x;
     grid.position.z = target.z;
     grid.updateMatrixWorld();
-
-    const fogEndWorld = Math.min(distance * 6, maxDimension * 4000);
-    const fogStartWorld = Math.min(distance * 1.8, fogEndWorld * 0.3);
-    gridUniforms.uFogStart.value = projectionWindowDepth(camera, fogStartWorld);
-    gridUniforms.uFogEnd.value = projectionWindowDepth(camera, fogEndWorld);
+    gridUniforms.uCameraDistance.value = distance;
   }
 
   function setGridVisible(visible) {

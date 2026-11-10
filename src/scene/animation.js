@@ -11,6 +11,7 @@ const NOTIFY_INTERVAL_MS = 33;
  *
  * @param {import('three').Object3D} object Parsed FBX graph.
  * @param {{ onTick?: (state: { time: number, duration: number, index: number, playing: boolean }) => void }} [options] Progress callback.
+ *   The state object is reused between ticks; read it synchronously and do not retain it.
  * @returns {{
  *   animations: Array<{ name: string, duration: number }>,
  *   setPlaying: (enabled: boolean) => boolean,
@@ -35,6 +36,9 @@ export function createAnimationController(object, { onTick } = {}) {
   let playing = false;
   let lastNotify = -Infinity;
   let disposed = false;
+  // Listeners read this synchronously and must not retain it. Reusing the
+  // object removes one allocation from every ~30 Hz progress notification.
+  const notificationState = { time: 0, duration: 0, index: 0, playing: false };
 
   /**
    * Create an action only when its clip is first selected. The mixer keeps the
@@ -83,7 +87,11 @@ export function createAnimationController(object, { onTick } = {}) {
 
   function emit() {
     if (disposed || typeof onTick !== 'function') return;
-    onTick(snapshot());
+    notificationState.time = currentTime();
+    notificationState.duration = currentDuration();
+    notificationState.index = index;
+    notificationState.playing = playing;
+    onTick(notificationState);
   }
 
   function update(delta, timestamp) {

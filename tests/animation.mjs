@@ -22,7 +22,7 @@ AnimationMixer.prototype.clipAction = function (...args) {
 
 const ticks = [];
 const controller = createAnimationController(object, {
-  onTick: (state) => ticks.push(state),
+  onTick: (state) => ticks.push(state.time),
 });
 
 assert.deepEqual(controller.animations, [

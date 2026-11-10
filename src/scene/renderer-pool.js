@@ -17,6 +17,7 @@ export function createViewerRenderer() {
       alpha: true,
       antialias: true,
       powerPreference: 'high-performance',
+      reversedDepthBuffer: true,
     });
   } catch (error) {
     throw new ViewerError('webgl', 'A WebGL context could not be created.', error);

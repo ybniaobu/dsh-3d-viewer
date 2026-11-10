@@ -1,13 +1,11 @@
 import * as React from 'react';
 import { isGlbAddress, normalizeFormat } from '../formats.js';
-import { loadModelBytes, preloadModelFormat } from '../loaders/model-loader.js';
-import { collectModelStats, disposeObject } from '../model.js';
-import { createSceneView } from '../scene/create-scene-view.js';
-import { prefetchEnvironment } from '../scene/environment.js';
 import { ViewerError } from '../scene/viewer-error.js';
 import { en } from './dictionaries.js';
 import { DEFAULT_SETTINGS } from './options.js';
 import { ViewerSurface } from './viewer-surface.js';
+import { loadViewerRuntime } from './viewer-runtime.js';
+import { loadViewerPreferences, saveViewerPreferences } from './viewer-preferences.js';
 
 const h = React.createElement;
 const ENVIRONMENT_WAIT_MS = 3000;
@@ -22,11 +20,28 @@ function loadingState() {
   return { status: 'loading', failure: null, stats: null, clips: [] };
 }
 
+const VIEWER_ERROR_CODES = new Set(['webgl', 'scene', 'parse']);
+
+/**
+ * Scene and UI are separate bundles, so each has its own ViewerError class.
+ * Match the stable name/code instead of relying on constructor identity.
+ */
+function viewerErrorCode(error) {
+  if (error instanceof ViewerError) return error.code;
+  if (error !== null
+    && typeof error === 'object'
+    && error.name === 'ViewerError'
+    && VIEWER_ERROR_CODES.has(error.code)) {
+    return error.code;
+  }
+  return 'scene';
+}
+
 function errorState(error) {
   return {
     status: 'error',
     failure: {
-      code: error instanceof ViewerError ? error.code : 'scene',
+      code: viewerErrorCode(error),
       message: error instanceof Error ? error.message : String(error),
       detail: error instanceof Error ? (error.stack ?? error.message) : String(error),
     },
@@ -93,7 +108,10 @@ function ModelViewer(props) {
     : null;
 
   const [runtime, setRuntime] = React.useState(loadingState);
-  const [settings, setSettings] = React.useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = React.useState(() => ({
+    ...DEFAULT_SETTINGS,
+    ...loadViewerPreferences(),
+  }));
   const [attempt, setAttempt] = React.useState(0);
   const hostRef = React.useRef(null);
   const viewRef = React.useRef(null);
@@ -117,15 +135,17 @@ function ModelViewer(props) {
     let model = null;
     let view = null;
     let assets = null;
+    let runtime = null;
     const controller = new AbortController();
+    const runtimePromise = loadViewerRuntime();
 
-    // Start the format chunk while the root file is read; the parse step then
-    // finds the chunk promise already settled.
-    preloadModelFormat(format);
-
-    // Overlap the HDRI fetch with the model read and parse; the PMREM build
-    // then starts from bytes that are already in memory.
-    prefetchEnvironment(settingsRef.current.environment);
+    // Start the format chunk and the HDRI fetch as soon as the shared runtime
+    // is available, while the root file is still being read.
+    void runtimePromise.then((api) => {
+      if (disposed) return;
+      api.preloadModelFormat(format);
+      api.prefetchEnvironment(settingsRef.current.environment);
+    }).catch(() => {});
 
     // Release whatever the load produced, whichever stage it reached. A view
     // owns the model once it adopts the scene, so only one of them is disposed.
@@ -135,7 +155,7 @@ function ModelViewer(props) {
         view = null;
         viewRef.current = null;
       } else if (model !== null) {
-        disposeObject(model);
+        runtime?.disposeObject(model);
         model = null;
       }
       assets?.dispose();
@@ -178,7 +198,11 @@ function ModelViewer(props) {
             renderer?.loaded?.(version);
           }
 
-          loaded = await loadModelBytes(bytes, format, {
+          const api = await runtimePromise;
+          if (disposed || controller.signal.aborted) return;
+          runtime = api;
+
+          loaded = await api.loadModelBytes(bytes, format, {
             resourceAddress: addressRef.current ?? undefined,
             readWorkspaceFile: readerRef.current ?? undefined,
             signal: controller.signal,
@@ -194,14 +218,14 @@ function ModelViewer(props) {
 
         if (disposed || controller.signal.aborted) {
           loaded.assets?.dispose();
-          disposeObject(loaded.object);
+          runtime?.disposeObject(loaded.object);
           return;
         }
 
         model = loaded.object;
         assets = loaded.assets ?? null;
 
-        const nextStats = collectModelStats(model);
+        const nextStats = runtime.collectModelStats(model);
         if (nextStats.renderables === 0) {
           release();
           if (!disposed) setRuntime({ status: 'empty', failure: null, stats: null, clips: [] });
@@ -212,7 +236,7 @@ function ModelViewer(props) {
         assets?.onTextureLoad(() => {
           if (!disposed) view?.invalidate();
         });
-        view = createSceneView(host, model, nextStats, {
+        view = runtime.createSceneView(host, model, nextStats, {
           ariaLabel: tRef.current('canvasLabel'),
           environment: current.environment,
         });
@@ -293,7 +317,11 @@ function ModelViewer(props) {
   }, [settings]);
 
   const updateSettings = (patch) => {
-    setSettings((previous) => ({ ...previous, ...patch }));
+    setSettings((previous) => {
+      const next = { ...previous, ...patch };
+      saveViewerPreferences(next);
+      return next;
+    });
   };
 
   const retry = () => {

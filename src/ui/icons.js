@@ -42,18 +42,10 @@ export function GridIcon() {
 }
 
 export function OrbitIcon() {
-  return h('svg', {
-    viewBox: '0 0 16 16',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.35,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
+  return h('span', {
+    className: 'dsh3dv-auto-rotate-glyph',
     'aria-hidden': true,
-  },
-  h('ellipse', { cx: 8, cy: 8, rx: 6.2, ry: 3.1, transform: 'rotate(-28 8 8)' }),
-  h('path', { d: 'm12.4 3.9 1.3 2.4-2.7.2' }),
-  h('circle', { cx: 8, cy: 8, r: 1.7 }));
+  }, '\u21BB');
 }
 
 export function WireframeIcon() {

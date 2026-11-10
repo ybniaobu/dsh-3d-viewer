@@ -4,23 +4,25 @@ Preview FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures dire
 
 **Requires DSH Desktop 0.2.2-rc.1 or newer** (built and tested on 0.2.2-rc.1).
 
-## What's new in 0.2.1
+## What's new in 0.2.2
 
-- Model loading is faster: glTF resources are discovered without a second full JSON parse, OBJ only creates MTL materials referenced by `usemtl`, FBX animation actions are created lazily, and full-buffer files are parsed without copying.
-- Texture previews are smoother: HDR/EXR previews show before their cache image is captured, the shared WebGL context releases the previous texture, and the worker pool cancels stale work and reuses finished decodes.
-- The model viewport now follows the DSH light/dark appearance with Blender-style backgrounds, a light wireframe on dark surfaces, black fog on dark backgrounds, and darker themed overlay panels.
-- Viewer badges, status panels, hints, animation controls, and pickers now share the same 11px/600 typography hierarchy.
-- Fixed the HDR/EXR preview cache crash when a WebGL preview has no `ImageData`, and fixed glTF URI aliases pointing at one prefetched resource.
+- Startup is lighter: the UI shell loads first, while Three.js, scene setup, and texture preview support are fetched only when a preview opens. Format loaders and decoders remain lazy.
+- Render quality now adapts to device memory, CPU cores, and display resolution: pixel ratio, MSAA, shadow-map size, and grid anisotropy are selected per preview.
+- Camera navigation gains an orientation gizmo with positive and negative axes. Click an endpoint for a standard view, or drag the gizmo to orbit. Material and environment choices are remembered for the next model.
+- The ground grid now follows the orbit target, uses world-space UVs, and has a tuned linear fog range.
+- Animation progress no longer re-renders React on every tick, and texture pan/zoom writes directly to the DOM instead of creating state objects per frame.
+- The texture worker client is shared through the lazy runtime instead of being duplicated in every format chunk.
 
 ## Highlights
 
-- Orbit, zoom, pan, and keyboard navigation; reset view and 15-second auto-rotate
+- Orbit, zoom, pan, keyboard navigation, reset view, and 15-second auto-rotate
+- Orientation-axis camera presets and drag-to-orbit navigation
 - Six material presets and four built-in HDRI environments
 - Standalone TGA, EXR, and HDR texture previews with tone mapping and dimension/bit-depth/zoom metadata
 - Animation playback with clip switching, seeking, and progress
 - Mesh, vertex, triangle, and file-size statistics
 - Embedded lights, cameras, and audio in source files are ignored
-- Three.js is bundled; the HDRIs ship with the plugin and are served by a local host route
+- Three.js loads lazily; HDRIs ship with the plugin and are served by a local host route
 
 ## Install
 

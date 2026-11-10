@@ -70,13 +70,14 @@ export function errorText(failure, t) {
   return t('renderFailed');
 }
 
-export function ToolButton({ label, active, onClick, children }) {
+export function ToolButton({ label, active, onClick, children, ...rest }) {
   const props = {
     type: 'button',
     className: 'dsh3dv-tool',
     title: label,
     'aria-label': label,
     onClick,
+    ...rest,
   };
   if (active !== undefined) props['aria-pressed'] = active;
   return h('button', props, children);

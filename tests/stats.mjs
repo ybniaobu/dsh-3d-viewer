@@ -68,6 +68,16 @@ assert.equal(ground.setFogColor(0x000000), true);
 assert.equal(ground.setFogColor(0x000000), false);
 const grid = groundScene.children.find((child) => child.material?.uniforms?.uFogColor);
 assert.equal(grid.material.uniforms.uFogColor.value.getHex(), 0x000000);
+const shadowPlane = groundScene.children.find((child) => child.receiveShadow);
+assert.ok(shadowPlane, 'ground should create a shadow receiver');
+
+ground.update(new Vector3(10, 0, 10), 2);
+assert.equal(grid.material.uniforms.uCameraDistance.value, 2);
+assert.equal(grid.material.uniforms.uMaxDimension.value, 2);
+assert.equal(grid.position.x, 10);
+assert.equal(grid.position.z, 10);
+assert.equal(shadowPlane.position.x, 1, 'shadow receiver must stay under the model');
+assert.equal(shadowPlane.position.z, 1);
 ground.dispose();
 
 // An invisible branch contributes nothing, including to the world bounds.

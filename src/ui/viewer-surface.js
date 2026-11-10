@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { AnimationBar } from './animation-bar.js';
 import {
+  AxisGizmo,
   Badge,
   Hint,
   StatsPanel,
@@ -61,12 +62,14 @@ export function ViewerSurface({
           })
           : null,
         ready
-          ? h(Toolbar, {
-            view,
-            settings,
-            onChange: onSettingsChange,
-            t,
-          })
+          ? h('div', { className: 'dsh3dv-toolbar-stack' },
+            h(Toolbar, {
+              view,
+              settings,
+              onChange: onSettingsChange,
+              t,
+            }),
+            h(AxisGizmo, { view, t }))
           : null)),
     ready && stats !== null
       ? h('div', { className: 'dsh3dv-hud' },

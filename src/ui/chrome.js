@@ -1,10 +1,19 @@
 import * as React from 'react';
 import { badgeKeyFor } from '../formats.js';
-import { CubeIcon, FrameIcon, GridIcon, OrbitIcon, WireframeIcon } from './icons.js';
+import {
+  CubeIcon,
+  FrameIcon,
+  GridIcon,
+  OrbitIcon,
+  WireframeIcon,
+} from './icons.js';
 import { ENVIRONMENT_OPTIONS, MATERIAL_OPTIONS } from './options.js';
 import { StatRow, ToolButton, errorText, formatBytes, formatCount } from './primitives.js';
 
 const h = React.createElement;
+
+/** Camera ids use `front`, while their locale keys use `viewFront`. */
+const viewLabelKey = (name) => `view${name[0].toUpperCase()}${name.slice(1)}`;
 
 /** Layout effects are client-only; the server render falls back to a no-op. */
 const useIsomorphicLayoutEffect = typeof window === 'undefined'
@@ -30,6 +39,7 @@ export function Toolbar({ view, settings, onChange, t }) {
       onClick: () => view?.reset(),
     }, h(FrameIcon)),
     h(ToolButton, {
+      className: 'dsh3dv-tool dsh3dv-tool--auto-rotate',
       label: t('autoRotate'),
       active: settings.autoRotate,
       onClick: () => onChange({ autoRotate: !settings.autoRotate }),
@@ -44,6 +54,227 @@ export function Toolbar({ view, settings, onChange, t }) {
       active: settings.wireframe,
       onClick: () => onChange({ wireframe: !settings.wireframe }),
     }, h(WireframeIcon)));
+}
+
+/**
+ * Projected, clickable world-axis gizmo.
+ *
+ * The camera quaternion is read synchronously from the scene view and the SVG
+ * attributes are updated directly; no React render is needed while orbiting.
+ *
+ * @param {{
+ *   view: object | null,
+ *   t: (key: string) => string,
+ * }} props Live view and translator.
+ */
+export function AxisGizmo({ view, t }) {
+  const xLineRef = React.useRef(null);
+  const xPosDotRef = React.useRef(null);
+  const xPosLabelRef = React.useRef(null);
+  const xNegDotRef = React.useRef(null);
+  const yLineRef = React.useRef(null);
+  const yPosDotRef = React.useRef(null);
+  const yPosLabelRef = React.useRef(null);
+  const yNegDotRef = React.useRef(null);
+  const zLineRef = React.useRef(null);
+  const zPosDotRef = React.useRef(null);
+  const zPosLabelRef = React.useRef(null);
+  const zNegDotRef = React.useRef(null);
+  const dragRef = React.useRef(null);
+  const suppressClickRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (view === null || typeof view.subscribeCamera !== 'function') return undefined;
+
+    const center = 44;
+    const radius = 24;
+    const labelGap = 10;
+
+    const updateAxis = (q, ax, ay, az, lineRef, posDotRef, posLabelRef, negDotRef) => {
+      const qx = -q.x;
+      const qy = -q.y;
+      const qz = -q.z;
+      const qw = q.w;
+      const tx = 2 * (qy * az - qz * ay);
+      const ty = 2 * (qz * ax - qx * az);
+      const tz = 2 * (qx * ay - qy * ax);
+      const vx = ax + qw * tx + (qy * tz - qz * ty);
+      const vy = ay + qw * ty + (qz * tx - qx * tz);
+      const sx = vx;
+      const sy = -vy;
+      const posX = center + sx * radius;
+      const posY = center + sy * radius;
+      const negX = center - sx * radius;
+      const negY = center - sy * radius;
+      const length = Math.hypot(sx, sy);
+
+      lineRef.current?.setAttribute('x1', negX.toFixed(2));
+      lineRef.current?.setAttribute('y1', negY.toFixed(2));
+      lineRef.current?.setAttribute('x2', posX.toFixed(2));
+      lineRef.current?.setAttribute('y2', posY.toFixed(2));
+      posDotRef.current?.setAttribute('cx', posX.toFixed(2));
+      posDotRef.current?.setAttribute('cy', posY.toFixed(2));
+      negDotRef.current?.setAttribute('cx', negX.toFixed(2));
+      negDotRef.current?.setAttribute('cy', negY.toFixed(2));
+
+      if (length > 0.08) {
+        posLabelRef.current?.setAttribute('x', (posX + (sx / length) * labelGap).toFixed(2));
+        posLabelRef.current?.setAttribute('y', (posY + (sy / length) * labelGap).toFixed(2));
+        posLabelRef.current?.setAttribute('opacity', '1');
+      } else {
+        posLabelRef.current?.setAttribute('opacity', '0');
+      }
+    };
+
+    return view.subscribeCamera((q) => {
+      updateAxis(q, 1, 0, 0, xLineRef, xPosDotRef, xPosLabelRef, xNegDotRef);
+      updateAxis(q, 0, 1, 0, yLineRef, yPosDotRef, yPosLabelRef, yNegDotRef);
+      updateAxis(q, 0, 0, 1, zLineRef, zPosDotRef, zPosLabelRef, zNegDotRef);
+    });
+  }, [view]);
+
+  const selectView = (name) => {
+    if (suppressClickRef.current) return;
+    view?.setCameraView?.(name);
+  };
+
+  const onPointerDown = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    suppressClickRef.current = false;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      moved: false,
+    };
+  };
+
+  const onPointerMove = (event) => {
+    const drag = dragRef.current;
+    if (drag === null || drag.pointerId !== event.pointerId) return;
+    if (!drag.moved) {
+      const moved = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (moved <= 3) return;
+      drag.moved = true;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
+
+    const dx = event.clientX - drag.lastX;
+    const dy = event.clientY - drag.lastY;
+    if (dx === 0 && dy === 0) return;
+    drag.lastX = event.clientX;
+    drag.lastY = event.clientY;
+    view?.rotateByPixels?.(dx, dy);
+  };
+
+  const endDrag = (event) => {
+    const drag = dragRef.current;
+    if (drag === null || drag.pointerId !== event.pointerId) return;
+    if (drag.moved) {
+      suppressClickRef.current = true;
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId) === true) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const axis = (name, label, posView, negView, refs, initial) => h(React.Fragment, { key: name },
+    h('line', {
+      ref: refs.line,
+      className: `dsh3dv-axis-line dsh3dv-axis-line--${name}`,
+      x1: initial.negX,
+      y1: initial.negY,
+      x2: initial.posX,
+      y2: initial.posY,
+    }),
+    h('g', {
+      className: `dsh3dv-axis-end dsh3dv-axis-end--${name}`,
+      role: 'button',
+      tabIndex: 0,
+      'aria-label': t(viewLabelKey(posView)),
+      onClick: () => selectView(posView),
+      onKeyDown: (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        selectView(posView);
+      },
+    },
+    h('title', null, t(viewLabelKey(posView))),
+    h('circle', {
+      ref: refs.posDot,
+      className: `dsh3dv-axis-dot dsh3dv-axis-dot--${name}`,
+      cx: initial.posX,
+      cy: initial.posY,
+      r: 3.4,
+    }),
+    h('text', {
+      ref: refs.posLabel,
+      className: `dsh3dv-axis-label dsh3dv-axis-label--${name}`,
+      x: initial.labelX,
+      y: initial.labelY,
+    }, label)),
+    h('g', {
+      className: `dsh3dv-axis-end dsh3dv-axis-end--${name} dsh3dv-axis-end--negative`,
+      role: 'button',
+      tabIndex: 0,
+      'aria-label': t(viewLabelKey(negView)),
+      onClick: () => selectView(negView),
+      onKeyDown: (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        selectView(negView);
+      },
+    },
+    h('title', null, t(viewLabelKey(negView))),
+    h('circle', {
+      ref: refs.negDot,
+      className: `dsh3dv-axis-dot dsh3dv-axis-dot--${name} dsh3dv-axis-negative-dot`,
+      cx: initial.negX,
+      cy: initial.negY,
+      r: 2.8,
+    })));
+
+  return h('svg', {
+    className: 'dsh3dv-axis',
+    viewBox: '0 0 88 88',
+    role: 'group',
+    'aria-label': t('cameraAxis'),
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: endDrag,
+    onPointerCancel: endDrag,
+    onLostPointerCapture: endDrag,
+  },
+  h('circle', {
+    className: 'dsh3dv-axis-drag-surface',
+    cx: 44,
+    cy: 44,
+    r: 42,
+  }),
+  axis('z', 'Z', 'front', 'back', {
+    line: zLineRef,
+    posDot: zPosDotRef,
+    posLabel: zPosLabelRef,
+    negDot: zNegDotRef,
+  }, { posX: 27, posY: 61, negX: 61, negY: 27, labelX: 20, labelY: 68 }),
+  axis('y', 'Y', 'top', 'bottom', {
+    line: yLineRef,
+    posDot: yPosDotRef,
+    posLabel: yPosLabelRef,
+    negDot: yNegDotRef,
+  }, { posX: 44, posY: 20, negX: 44, negY: 68, labelX: 44, labelY: 10 }),
+  axis('x', 'X', 'right', 'left', {
+    line: xLineRef,
+    posDot: xPosDotRef,
+    posLabel: xPosLabelRef,
+    negDot: xNegDotRef,
+  }, { posX: 68, posY: 44, negX: 20, negY: 44, labelX: 78, labelY: 44 }));
 }
 
 export function StatsPanel({ stats, fileSize, t }) {
