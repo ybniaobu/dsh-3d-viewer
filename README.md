@@ -77,7 +77,8 @@ Notes:
 
 | Format | Decoded data | Preview |
 | --- | --- | --- |
-| **PNG / JPG / JPEG** | 8-bit RGBA | Direct pixels, alpha preserved |
+| **PNG** | 8-bit RGBA | Direct pixels, alpha preserved |
+| **JPG / JPEG** | 8-bit RGBA | Direct pixels, alpha preserved |
 | **TGA** | 8-bit RGBA | Direct pixels, alpha preserved |
 | **EXR** | 16-bit half or 32-bit float, 1–4 channels | Tone-mapped to SDR |
 | **HDR** | Radiance RGBE, 16-bit half by default | Tone-mapped to SDR |

@@ -77,7 +77,8 @@
 
 | 格式 | 解码数据 | 预览 |
 | --- | --- | --- |
-| **PNG / JPG / JPEG** | 8-bit RGBA | 直接显示，保留 alpha |
+| **PNG** | 8-bit RGBA | 直接显示，保留 alpha |
+| **JPG / JPEG** | 8-bit RGBA | 直接显示，保留 alpha |
 | **TGA** | 8-bit RGBA | 直接显示，保留 alpha |
 | **EXR** | 16-bit half 或 32-bit float，1–4 通道 | 色调映射到 SDR |
 | **HDR** | Radiance RGBE，默认 16-bit half | 色调映射到 SDR |
