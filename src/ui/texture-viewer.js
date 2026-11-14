@@ -759,11 +759,9 @@ function TextureViewer(props) {
           }, t('textureFlipY')))
         : null,
       ready
-        ? h('span', { className: 'dsh3dv-badge dsh3dv-texture-meta-size' },
-          `${state.width} × ${state.height} · ${state.bits}-bit`)
-        : null,
-      ready
-        ? h('span', { className: 'dsh3dv-badge dsh3dv-texture-meta-zoom', ref: zoomLabelRef }, '100%')
+        ? h('span', { className: 'dsh3dv-badge' },
+          `${state.width} × ${state.height} · ${state.bits}-bit · `,
+          h('span', { ref: zoomLabelRef }, '100%'))
         : null)),
   h(StatusOverlay, {
     status: state.status,
