@@ -14,7 +14,6 @@ const h = React.createElement;
 const MAX_TEXTURE_ZOOM = 16;
 const KEY_ZOOM_FACTOR = 1.25;
 const KEY_PAN_STEP = 40;
-const TEXTURE_CHANNELS = Object.freeze(['rgba', 'r', 'g', 'b', 'a']);
 
 function fallbackTranslate(key, params) {
   const template = en[key] ?? key;
@@ -182,31 +181,6 @@ export function textureImageData(texture) {
 }
 
 /**
- * Render one source channel as a grayscale image. Alpha is shown as grayscale
- * with an opaque output alpha so transparent pixels remain visible.
- *
- * @param {ImageData} image Source RGBA pixels.
- * @param {'rgba' | 'r' | 'g' | 'b' | 'a'} channel Channel to display.
- * @returns {ImageData} Pixels for the preview canvas.
- */
-export function textureChannelImage(image, channel) {
-  if (channel === 'rgba') return image;
-
-  const source = image.data;
-  const output = new Uint8ClampedArray(source.length);
-  const alpha = channel === 'a';
-  const offset = channel === 'r' ? 0 : channel === 'g' ? 1 : channel === 'b' ? 2 : 3;
-  for (let index = 0; index < source.length; index += 4) {
-    const value = alpha ? source[index + 3] : source[index + offset];
-    output[index] = value;
-    output[index + 1] = value;
-    output[index + 2] = value;
-    output[index + 3] = 255;
-  }
-  return new ImageData(output, image.width, image.height);
-}
-
-/**
  * @param {import('three').Texture} texture Decoded texture.
  * @returns {number} Bits per channel in the decoded data.
  */
@@ -281,8 +255,6 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
 /**
  * @param {HTMLCanvasElement | null} canvas Target canvas.
  * @param {import('three').Texture} texture Decoded texture.
- * @param {object} runtime Viewer runtime.
- * @param {'rgba' | 'r' | 'g' | 'b' | 'a'} channel Channel to display.
  * @returns {{
  *   width: number,
  *   height: number,
@@ -291,12 +263,12 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
  *   glPreview?: { render: (flipY: boolean) => void, dispose: () => void },
  * }} Preview metadata.
  */
-function drawTexture(canvas, texture, runtime, channel) {
+function drawTexture(canvas, texture, runtime) {
   const image = texture.image;
   const width = image?.width;
   const height = image?.height;
   const bits = bitDepthFor(texture);
-  if (channel === 'rgba' && texture.userData?.dsh3dHdr === true) {
+  if (texture.userData?.dsh3dHdr === true) {
     try {
       const glPreview = runtime.createWebGlPreview(canvas, texture);
       return { width, height, bits, glPreview };
@@ -307,7 +279,7 @@ function drawTexture(canvas, texture, runtime, channel) {
   }
 
   const pixels = imageDataFor(texture);
-  drawImageData(canvas, textureChannelImage(pixels, channel));
+  drawImageData(canvas, pixels);
   return {
     width: pixels.width,
     height: pixels.height,
@@ -350,18 +322,15 @@ function TextureViewer(props) {
   const [attempt, setAttempt] = React.useState(0);
   const [zoomed, setZoomed] = React.useState(false);
   const [flipY, setFlipY] = React.useState(false);
-  const [channel, setChannel] = React.useState('rgba');
   const [dragging, setDragging] = React.useState(false);
   const canvasRef = React.useRef(null);
   const stageRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const imageRef = React.useRef(null);
-  const textureRef = React.useRef(null);
   const glPreviewRef = React.useRef(null);
   const sourceCanvasRef = React.useRef(null);
   const sourceImageRef = React.useRef(null);
   const flipYRef = React.useRef(false);
-  const channelRef = React.useRef('rgba');
   const cacheTokenRef = React.useRef(0);
   const viewRafRef = React.useRef(0);
   const pendingViewRef = React.useRef(null);
@@ -417,10 +386,6 @@ function TextureViewer(props) {
   }, [flipY]);
 
   React.useEffect(() => {
-    channelRef.current = channel;
-  }, [channel]);
-
-  React.useEffect(() => {
     const controller = new AbortController();
     let disposed = false;
 
@@ -432,8 +397,6 @@ function TextureViewer(props) {
       setFlipY(false);
       glPreviewRef.current?.dispose();
       glPreviewRef.current = null;
-      textureRef.current?.dispose();
-      textureRef.current = null;
       imageRef.current = null;
       sourceImageRef.current = null;
       try {
@@ -463,10 +426,7 @@ function TextureViewer(props) {
         const cached = cacheKey === null ? null : getCachedPreview(cacheKey);
         if (cached !== null) {
           if (disposed || controller.signal.aborted) return;
-          drawImageData(
-            canvasRef.current,
-            textureChannelImage(cached.image, channelRef.current),
-          );
+          drawImageData(canvasRef.current, cached.image);
           imageRef.current = cached.image;
           glPreviewRef.current = null;
           sourceImageRef.current = null;
@@ -494,9 +454,8 @@ function TextureViewer(props) {
           return;
         }
 
-        const info = drawTexture(canvasRef.current, texture, runtime, channelRef.current);
-        if (info.glPreview !== undefined) textureRef.current = texture;
-        else texture.dispose();
+        const info = drawTexture(canvasRef.current, texture, runtime);
+        texture.dispose();
         imageRef.current = info.image ?? null;
         glPreviewRef.current = info.glPreview ?? null;
         sourceImageRef.current = null;
@@ -523,8 +482,7 @@ function TextureViewer(props) {
           && info.width * info.height * 4 <= previewCacheBudget()) {
           const capture = () => {
             if (disposed || controller.signal.aborted || cacheTokenRef.current !== cacheToken) return;
-            if (flipYRef.current || channelRef.current !== 'rgba') return;
-            if (glPreviewRef.current !== info.glPreview) return;
+            if (flipYRef.current || glPreviewRef.current !== info.glPreview) return;
             if (getCachedPreview(cacheKey) !== null) return;
             try {
               const context = canvasRef.current?.getContext('2d');
@@ -572,32 +530,23 @@ function TextureViewer(props) {
 
   React.useEffect(() => {
     if (state.status !== 'ready') return;
-    if (channel === 'rgba' && glPreviewRef.current !== null) {
+    if (glPreviewRef.current !== null) {
       glPreviewRef.current.render(flipY);
       return;
-    }
-    if (imageRef.current === null && textureRef.current !== null) {
-      try {
-        imageRef.current = imageDataFor(textureRef.current);
-      } catch {
-        return;
-      }
     }
     if (imageRef.current === null) return;
     drawImageData(
       canvasRef.current,
-      textureChannelImage(imageRef.current, channel),
+      imageRef.current,
       flipY,
       sourceCanvasRef,
       sourceImageRef,
     );
-  }, [channel, flipY, state.status]);
+  }, [flipY, state.status]);
 
   React.useEffect(() => () => {
     glPreviewRef.current?.dispose();
     glPreviewRef.current = null;
-    textureRef.current?.dispose();
-    textureRef.current = null;
     if (viewRafRef.current !== 0) {
       cancelAnimationFrame(viewRafRef.current);
       viewRafRef.current = 0;
@@ -787,18 +736,6 @@ function TextureViewer(props) {
   h('div', { className: 'dsh3dv-top' },
     h('span', { className: 'dsh3dv-badge' }, t(`${format}Badge`)),
     h('div', { className: 'dsh3dv-texture-actions' },
-      ready
-        ? h('select', {
-          className: 'dsh3dv-texture-channel',
-          value: channel,
-          title: t('textureChannel'),
-          'aria-label': t('textureChannel'),
-          onChange: (event) => setChannel(event.currentTarget.value),
-        }, TEXTURE_CHANNELS.map((value) => h('option', {
-          key: value,
-          value,
-        }, value === 'rgba' ? 'RGBA' : value.toUpperCase())))
-        : null,
       ready
         ? h('button', {
           type: 'button',
