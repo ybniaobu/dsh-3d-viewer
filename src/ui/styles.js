@@ -9,7 +9,7 @@ body[data-ds-dark-theme] .dsh3dv-root,.dsh3dv-root[data-dsh3d-tone="dark"]{--dsh
 .dsh3dv-texture-stage[data-dragging="true"]{cursor:grabbing}
 .dsh3dv-texture-stage:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
 .dsh3dv-texture-image{display:block;width:auto;height:auto;max-width:100%;max-height:100%;border-radius:2px;background:transparent;box-shadow:0 2px 18px rgba(20,28,40,.2);transform-origin:center center;will-change:transform;user-select:none;-webkit-user-drag:none}
-.dsh3dv-texture-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;min-width:0;max-width:100%;margin-left:auto;pointer-events:none}
+.dsh3dv-texture-actions{display:flex;align-items:center;justify-content:flex-end;flex:1 1 auto;flex-wrap:wrap;gap:6px;min-width:0;max-width:100%;margin-left:auto;pointer-events:none}
 .dsh3dv-texture-controls{display:flex;flex:none;flex-wrap:nowrap;align-items:center;gap:6px;pointer-events:none}
 .dsh3dv-texture-fit{pointer-events:auto;padding:4px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--dsh3dv-overlay-bg);color:var(--dsw-alias-label-secondary);font:inherit;font-size:var(--dsh3dv-label-size);font-weight:var(--dsh3dv-label-weight);line-height:1;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .dsh3dv-texture-fit:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
@@ -18,7 +18,8 @@ body[data-ds-dark-theme] .dsh3dv-root,.dsh3dv-root[data-dsh3d-tone="dark"]{--dsh
 .dsh3dv-canvas{display:block;width:100%;height:100%;outline:none;touch-action:none;cursor:grab}
 .dsh3dv-canvas:active{cursor:grabbing}
 .dsh3dv-canvas:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
-.dsh3dv-top{position:absolute;top:10px;right:10px;left:10px;z-index:20;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;pointer-events:none}
+.dsh3dv-top{position:absolute;top:10px;right:10px;left:10px;z-index:20;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:nowrap;gap:8px;pointer-events:none}
+.dsh3dv-top>.dsh3dv-badge{flex:none}
 .dsh3dv-top-actions{display:flex;align-items:flex-start;justify-content:flex-end;flex-wrap:wrap;gap:6px;min-width:0;max-width:100%;margin-left:auto;pointer-events:none}
 .dsh3dv-badge,.dsh3dv-stats,.dsh3dv-hint{pointer-events:none}
 .dsh3dv-toolbar{pointer-events:auto}

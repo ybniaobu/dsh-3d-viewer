@@ -152,8 +152,9 @@ assert.match(CSS, /\.dsh3dv-anim-option\{[^}]*flex:none[^}]*height:24px/);
 assert.match(CSS, /\.dsh3dv-speed-menu\{[^}]*right:-6px[^}]*width:48px[^}]*min-width:48px[^}]*max-width:48px/);
 assert.match(CSS, /\.dsh3dv-speed-menu \.dsh3dv-anim-option\{[^}]*text-align:center/);
 assert.match(CSS, /\.dsh3dv-texture-actions\{[^}]*flex-wrap:wrap/);
+assert.match(CSS, /\.dsh3dv-texture-actions\{[^}]*flex:1 1 auto/);
+assert.match(CSS, /\.dsh3dv-top\{[^}]*flex-wrap:nowrap/);
 assert.match(CSS, /\.dsh3dv-texture-controls\{[^}]*flex-wrap:nowrap/);
-assert.match(CSS, /\.dsh3dv-top\{[^}]*flex-wrap:wrap/);
 const readyHtml = renderToStaticMarkup(React.createElement(ViewerSurface, {
   format: 'obj',
   glb: false,
