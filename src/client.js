@@ -11,12 +11,12 @@ import { loadViewerRuntime } from './ui/viewer-runtime.js';
 const NS = 'dsh3dViewer';
 const BODY_SLOT = 'sidebar.right.tab.document';
 const EXTRA_LOCALE_CHUNKS = Object.freeze({
-  de: './client.locale.de.js',
-  es: './client.locale.es.js',
-  fr: './client.locale.fr.js',
-  ja: './client.locale.ja.js',
-  pt: './client.locale.pt.js',
-  ru: './client.locale.ru.js',
+  de: './client.locales.de.js',
+  es: './client.locales.es.js',
+  fr: './client.locales.fr.js',
+  ja: './client.locales.ja.js',
+  pt: './client.locales.pt.js',
+  ru: './client.locales.ru.js',
 });
 const localeRegistrations = new Map();
 const localeLoadPromises = new Map();
@@ -402,7 +402,7 @@ function hasAsyncLoader() {
 function loadStyleSheet() {
   if (!hasAsyncLoader() || typeof document === 'undefined') return Promise.resolve(null);
   if (stylePromise === null) {
-    stylePromise = asyncChunk('./client.styles.js')
+    stylePromise = asyncChunk('./client.ui.styles.js')
       .then((module) => {
         if (typeof module.CSS !== 'string' || module.CSS.length === 0) return null;
         const style = document.createElement('style');

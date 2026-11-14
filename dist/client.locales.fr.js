@@ -1,7 +1,7 @@
-/*! dsh-3d-viewer locale.fr UI chunk | src/ui/dictionaries/fr.js. See THIRD_PARTY_NOTICES.md. */
+/*! dsh-3d-viewer locales.fr UI chunk | src/ui/dictionaries/fr.js. See THIRD_PARTY_NOTICES.md. */
 window.__ModuleLoader__.load({
   id: "dsh-3d-viewer",
-  chunk: "client.locale.fr.js",
+  chunk: "client.locales.fr.js",
   factory(require) {
     var localRequire = (id) => id === 'three' ? globalThis.__DSH3DV_THREE__ : require(id);
     var module = { exports: {} };

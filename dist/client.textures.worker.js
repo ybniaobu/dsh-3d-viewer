@@ -1,7 +1,7 @@
 /*! dsh-3d-viewer EXR/HDR worker chunk | bundles Three.js addons (MIT). See THIRD_PARTY_NOTICES.md. */
 window.__ModuleLoader__.load({
   id: "dsh-3d-viewer",
-  chunk: "client.tex-worker.js",
+  chunk: "client.textures.worker.js",
   factory(require) {
     var module = { exports: {} };
     var exports = module.exports;

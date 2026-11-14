@@ -18,22 +18,25 @@ globalThis.ImageData = class ImageData {
 };
 
 const loaders = {
-  fbx: 'loadFbxModel',
-  obj: 'loadObjModel',
-  gltf: 'loadGltfModel',
-  stl: 'loadStlModel',
-  dae: 'loadDaeModel',
+  fbx: { chunk: 'formats.fbx', export: 'loadFbxModel' },
+  obj: { chunk: 'formats.obj', export: 'loadObjModel' },
+  gltf: { chunk: 'formats.gltf', export: 'loadGltfModel' },
+  stl: { chunk: 'formats.stl', export: 'loadStlModel' },
+  dae: { chunk: 'formats.dae', export: 'loadDaeModel' },
 };
 const textureLoaders = {
-  'tex-tga': 'decodeTga',
-  'tex-exr': 'decodeExr',
-  'tex-hdr': 'decodeHdr',
+  'tex-tga': { chunk: 'textures.tga', export: 'decodeTga' },
+  'tex-exr': { chunk: 'textures.exr', export: 'decodeExr' },
+  'tex-hdr': { chunk: 'textures.hdr', export: 'decodeHdr' },
 };
 const loaded = {};
 const textures = {};
 
-async function loadChunk(name, exportName) {
-  const code = await readFile(new URL(`../../dist/client.${name}.js`, import.meta.url), 'utf8');
+async function loadChunk(chunkName, exportName) {
+  const code = await readFile(
+    new URL(`../../dist/client.${chunkName}.js`, import.meta.url),
+    'utf8',
+  );
   let registration;
   const window = {
     __ModuleLoader__: {
@@ -44,22 +47,22 @@ async function loadChunk(name, exportName) {
   };
 
   new Function('window', code)(window);
-  assert.ok(registration, `${name} chunk must register a factory`);
+  assert.ok(registration, `${chunkName} chunk must register a factory`);
   assert.equal(registration.id, 'dsh-3d-viewer');
-  assert.equal(registration.chunk, `client.${name}.js`);
+  assert.equal(registration.chunk, `client.${chunkName}.js`);
 
   const exports = registration.factory((id) => {
-    throw new Error(`unexpected synchronous require in ${name} chunk: ${id}`);
+    throw new Error(`unexpected synchronous require in ${chunkName} chunk: ${id}`);
   });
-  assert.equal(typeof exports[exportName], 'function', `${name} chunk must export ${exportName}`);
+  assert.equal(typeof exports[exportName], 'function', `${chunkName} chunk must export ${exportName}`);
   return exports;
 }
 
-for (const [name, exportName] of Object.entries(loaders)) {
-  loaded[name] = await loadChunk(name, exportName);
+for (const [name, definition] of Object.entries(loaders)) {
+  loaded[name] = await loadChunk(definition.chunk, definition.export);
 }
-for (const [name, exportName] of Object.entries(textureLoaders)) {
-  textures[name] = await loadChunk(name, exportName);
+for (const [name, definition] of Object.entries(textureLoaders)) {
+  textures[name] = await loadChunk(definition.chunk, definition.export);
 }
 
 const stlPath = fileURLToPath(new URL('../../samples/TestCube.stl', import.meta.url));
@@ -126,7 +129,7 @@ assert.deepEqual([...bottomUpPreview.data], [0, 0, 255, 255, 255, 0, 0, 255]);
 // Texture with a data image is uploaded as an image element and renders gray.
 globalThis.__DSH3DV_REQUIRE__ = {
   async: async (spec) => {
-    const match = /tex-(tga|exr|hdr)\.js$/u.exec(spec);
+    const match = /textures\.(tga|exr|hdr)\.js$/u.exec(spec);
     if (match === null) throw new Error(`unexpected texture chunk: ${spec}`);
     return textures[`tex-${match[1]}`];
   },

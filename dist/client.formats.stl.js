@@ -1,7 +1,7 @@
-/*! dsh-3d-viewer stl loader chunk | bundles Three.js addons (MIT). See THIRD_PARTY_NOTICES.md. */
+/*! dsh-3d-viewer formats.stl loader chunk | bundles Three.js addons (MIT). See THIRD_PARTY_NOTICES.md. */
 window.__ModuleLoader__.load({
   id: "dsh-3d-viewer",
-  chunk: "client.stl.js",
+  chunk: "client.formats.stl.js",
   factory(require) {
     var localRequire = (id) => id === 'three' ? globalThis.__DSH3DV_THREE__ : require(id);
     var module = { exports: {} };

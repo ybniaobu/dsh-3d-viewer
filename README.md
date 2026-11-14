@@ -95,7 +95,7 @@ Notes:
 | Core | `src/core/`: byte helpers, formats, model statistics |
 | Client registration | `src/client.js`, `src/core/formats.js`, `src/core/texture-formats.js` |
 | Lazy runtime | `src/runtime.js`, `src/ui/viewer-runtime.js`, `src/loaders/address.js` |
-| Lazy UI chunks | `client.styles.js`, `client.texture.js`, `client.locale.*.js` |
+| Lazy UI chunks | `client.ui.styles.js`, `client.ui.texture.js`, `client.locales.*.js` |
 | UI | `src/ui/`: chrome, controls, preferences; `ui/model/` and `ui/texture/` for the two viewers |
 | Scene | `src/scene/`: renderer, camera, materials, environment, grid, post-processing |
 | Loaders | `src/loaders/`: dispatch, workspace reads, texture workers, `formats/` loaders |

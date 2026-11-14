@@ -95,7 +95,7 @@
 | 核心 | `src/core/`：字节工具、格式注册、模型统计 |
 | 客户端注册 | `src/client.js`、`src/core/formats.js`、`src/core/texture-formats.js` |
 | 懒加载运行时 | `src/runtime.js`、`src/ui/viewer-runtime.js`、`src/loaders/address.js` |
-| 懒加载 UI chunk | `client.styles.js`、`client.texture.js`、`client.locale.*.js` |
+| 懒加载 UI chunk | `client.ui.styles.js`、`client.ui.texture.js`、`client.locales.*.js` |
 | UI | `src/ui/`：框架、控件、偏好；`ui/model/` 与 `ui/texture/` 分别为两个查看器 |
 | 场景 | `src/scene/`：渲染器、相机、材质、环境、网格、后处理 |
 | 加载器 | `src/loaders/`：格式分派、工作区读取、纹理 Worker，`formats/` 为格式加载器 |

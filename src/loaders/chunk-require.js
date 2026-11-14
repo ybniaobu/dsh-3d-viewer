@@ -6,7 +6,7 @@
  * source. A missing loader means the plugin is being exercised outside DSH
  * (e.g. a unit test that should import the format module directly).
  *
- * @param {string} spec Relative chunk spec, e.g. `./client.fbx.js`.
+ * @param {string} spec Relative chunk spec, e.g. `./client.formats.fbx.js`.
  * @returns {Promise<Record<string, unknown>>} Chunk exports.
  */
 export function asyncChunk(spec) {

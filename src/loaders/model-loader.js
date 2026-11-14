@@ -8,12 +8,12 @@ import { asyncChunk } from './chunk-require.js';
  * system fetches one only when that format is first opened.
  */
 const CHUNKS = Object.freeze({
-  fbx: { file: './client.fbx.js', loader: 'loadFbxModel' },
-  obj: { file: './client.obj.js', loader: 'loadObjModel' },
-  gltf: { file: './client.gltf.js', loader: 'loadGltfModel' },
-  glb: { file: './client.gltf.js', loader: 'loadGltfModel' },
-  stl: { file: './client.stl.js', loader: 'loadStlModel' },
-  dae: { file: './client.dae.js', loader: 'loadDaeModel' },
+  fbx: { file: './client.formats.fbx.js', loader: 'loadFbxModel' },
+  obj: { file: './client.formats.obj.js', loader: 'loadObjModel' },
+  gltf: { file: './client.formats.gltf.js', loader: 'loadGltfModel' },
+  glb: { file: './client.formats.gltf.js', loader: 'loadGltfModel' },
+  stl: { file: './client.formats.stl.js', loader: 'loadStlModel' },
+  dae: { file: './client.formats.dae.js', loader: 'loadDaeModel' },
 });
 
 /** One in-flight chunk promise per file, so concurrent opens share it. */

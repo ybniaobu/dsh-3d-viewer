@@ -56,7 +56,7 @@ function textureFormatOf(path) {
  * @returns {Promise<Record<string, unknown>>} Decoder chunk exports.
  */
 function loadTextureChunk(format) {
-  const file = `./client.tex-${format}.js`;
+  const file = `./client.textures.${format}.js`;
   let promise = textureChunkPromises.get(file);
   if (promise === undefined) {
     promise = asyncChunk(file);

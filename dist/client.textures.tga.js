@@ -1,7 +1,7 @@
-/*! dsh-3d-viewer tex-tga loader chunk | bundles Three.js addons (MIT). See THIRD_PARTY_NOTICES.md. */
+/*! dsh-3d-viewer textures.tga loader chunk | bundles Three.js addons (MIT). See THIRD_PARTY_NOTICES.md. */
 window.__ModuleLoader__.load({
   id: "dsh-3d-viewer",
-  chunk: "client.tex-tga.js",
+  chunk: "client.textures.tga.js",
   factory(require) {
     var localRequire = (id) => id === 'three' ? globalThis.__DSH3DV_THREE__ : require(id);
     var module = { exports: {} };

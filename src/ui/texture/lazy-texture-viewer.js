@@ -12,7 +12,7 @@ let componentsPromise = null;
  */
 function loadTextureComponents() {
   if (componentsPromise === null) {
-    componentsPromise = asyncChunk('./client.texture.js');
+    componentsPromise = asyncChunk('./client.ui.texture.js');
     componentsPromise.catch(() => {
       componentsPromise = null;
     });
