@@ -501,6 +501,7 @@ export function createSceneView(host, object, stats, options = {}) {
   function paint() {
     if (disposed) return;
     animation.update(0, performance.now());
+    animation.prewarm();
     post.render(0);
   }
 

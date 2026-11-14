@@ -72,6 +72,38 @@ assert.equal(controller.setSpeed(0), false);
 assert.equal(controller.setSpeed(Number.NaN), false);
 
 controller.dispose();
+
+const idleQueue = [];
+const originalRequestIdleCallback = globalThis.requestIdleCallback;
+const originalCancelIdleCallback = globalThis.cancelIdleCallback;
+globalThis.requestIdleCallback = (callback) => {
+  idleQueue.push(callback);
+  return idleQueue.length;
+};
+globalThis.cancelIdleCallback = () => {};
+
+const warmObject = new Object3D();
+warmObject.animations = Array.from({ length: 4 }, (_, clipIndex) => new AnimationClip(
+  `warm-${clipIndex}`,
+  1,
+  [new VectorKeyframeTrack('.position', [0, 1], [0, 0, 0, clipIndex, 0, 0])],
+));
+const warmController = createAnimationController(warmObject);
+const actionCallsBeforePrewarm = clipActionCalls;
+assert.equal(warmController.prewarm(), true);
+assert.equal(idleQueue.length, 1, 'prewarm schedules an idle callback');
+while (idleQueue.length > 0) {
+  idleQueue.shift()({ timeRemaining: () => 8 });
+}
+assert.equal(clipActionCalls - actionCallsBeforePrewarm, 3, 'prewarm creates the remaining actions');
+assert.deepEqual(warmController.snapshot(), { time: 0, duration: 1, index: 0, playing: false });
+warmController.dispose();
+
+if (originalRequestIdleCallback === undefined) delete globalThis.requestIdleCallback;
+else globalThis.requestIdleCallback = originalRequestIdleCallback;
+if (originalCancelIdleCallback === undefined) delete globalThis.cancelIdleCallback;
+else globalThis.cancelIdleCallback = originalCancelIdleCallback;
+
 AnimationMixer.prototype.clipAction = originalClipAction;
 assert.ok(ticks.length >= 4);
 

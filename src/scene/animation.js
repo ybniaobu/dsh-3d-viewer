@@ -19,6 +19,7 @@ const NOTIFY_INTERVAL_MS = 33;
  *   setSpeed: (rate: number) => boolean,
  *   seek: (seconds: number) => boolean,
  *   update: (delta: number, timestamp: number) => void,
+ *   prewarm: () => boolean,
  *   snapshot: () => { time: number, duration: number, index: number, playing: boolean },
  *   isPlaying: () => boolean,
  *   dispose: () => void,
@@ -36,6 +37,10 @@ export function createAnimationController(object, { onTick } = {}) {
   let index = 0;
   let playing = false;
   let playbackRate = 1;
+  let prewarmIndex = 1;
+  let prewarmScheduled = false;
+  let prewarmHandle = 0;
+  let prewarmIdle = false;
   let lastNotify = -Infinity;
   let disposed = false;
   // Listeners read this synchronously and must not retain it. Reusing the
@@ -116,6 +121,46 @@ export function createAnimationController(object, { onTick } = {}) {
     return true;
   }
 
+  function cancelPrewarm() {
+    if (!prewarmScheduled) return;
+    if (prewarmIdle && typeof cancelIdleCallback === 'function') cancelIdleCallback(prewarmHandle);
+    else clearTimeout(prewarmHandle);
+    prewarmScheduled = false;
+    prewarmHandle = 0;
+  }
+
+  function schedulePrewarm() {
+    if (disposed || mixer === null || prewarmScheduled || prewarmIndex >= clips.length) return;
+    prewarmScheduled = true;
+    prewarmIdle = typeof requestIdleCallback === 'function';
+
+    const run = (deadline) => {
+      prewarmScheduled = false;
+      prewarmHandle = 0;
+      if (disposed || mixer === null) return;
+
+      let created = 0;
+      while (prewarmIndex < clips.length
+        && created < 2
+        && (!prewarmIdle || deadline === undefined || deadline.timeRemaining() > 2)) {
+        if (actions[prewarmIndex] === null) getAction(prewarmIndex);
+        prewarmIndex += 1;
+        created += 1;
+      }
+      schedulePrewarm();
+    };
+
+    prewarmHandle = prewarmIdle
+      ? requestIdleCallback(run, { timeout: 500 })
+      : setTimeout(run, 32);
+  }
+
+  function prewarm() {
+    if (disposed || prewarmIndex >= clips.length) return false;
+    schedulePrewarm();
+    return true;
+  }
+
   function setPlaying(enabled) {
     if (disposed || mixer === null) return false;
 
@@ -165,6 +210,7 @@ export function createAnimationController(object, { onTick } = {}) {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    cancelPrewarm();
     if (mixer !== null) {
       mixer.stopAllAction();
       mixer.uncacheRoot(object);
@@ -178,6 +224,7 @@ export function createAnimationController(object, { onTick } = {}) {
     setSpeed,
     seek,
     update,
+    prewarm,
     snapshot,
     isPlaying: () => playing,
     dispose,
