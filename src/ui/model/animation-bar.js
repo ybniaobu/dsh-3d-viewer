@@ -37,6 +37,9 @@ export function AnimationBar({ view, clips, t }) {
   const speedPickerRef = React.useRef(null);
   const speedButtonRef = React.useRef(null);
   const lastSecondsRef = React.useRef(0);
+  const lastDurationRef = React.useRef(Number.NaN);
+  const durationLabelRef = React.useRef('0.00');
+  const lastTimeValueRef = React.useRef('');
 
   const clipName = (clip, clipIndex) => clip.name || t('animationFallback', { n: clipIndex + 1 });
   const activeIndex = clips.length === 0 ? 0 : Math.min(index, clips.length - 1);
@@ -100,7 +103,16 @@ export function AnimationBar({ view, clips, t }) {
     lastSecondsRef.current = next;
     if (progressRef.current !== null) progressRef.current.value = String(next);
     if (timeRef.current !== null) {
-      timeRef.current.textContent = `${formatSeconds(next)}s / ${formatSeconds(animationMax)}s`;
+      const durationChanged = lastDurationRef.current !== animationMax;
+      if (durationChanged) {
+        lastDurationRef.current = animationMax;
+        durationLabelRef.current = formatSeconds(animationMax);
+      }
+      const timeValue = formatSeconds(next);
+      if (timeValue !== lastTimeValueRef.current || durationChanged) {
+        lastTimeValueRef.current = timeValue;
+        timeRef.current.textContent = `${timeValue}s / ${durationLabelRef.current}s`;
+      }
     }
   };
 

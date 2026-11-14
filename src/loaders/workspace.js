@@ -84,15 +84,17 @@ async function decodeWorkspaceTextureOnMainThread(format, data) {
 }
 
 /**
- * Decode a browser-supported raster image into a top-down RGBA DataTexture.
- * PNG and JPEG already have native decoders, so they do not need a format chunk.
+ * Decode a browser-supported raster image to an ImageBitmap.
+ *
+ * Keeping the bitmap avoids a full `getImageData()` readback for standalone
+ * PNG/JPEG previews; `drawImage()` can display it directly on the 2D canvas.
  *
  * @param {'png' | 'jpeg'} format Raster format.
  * @param {Uint8Array | ArrayBuffer} data Complete image bytes.
  * @param {{ signal?: AbortSignal }} [options] Cancellation.
- * @returns {Promise<Texture>} Decoded texture.
+ * @returns {Promise<{ image: ImageBitmap, width: number, height: number }>} Decoded bitmap.
  */
-async function decodeRasterTexture(format, data, options = {}) {
+export async function decodeRasterPreview(format, data, options = {}) {
   if (options.signal?.aborted === true) throw abortError();
   if (typeof createImageBitmap !== 'function') {
     throw new Error('This browser cannot decode PNG or JPEG textures.');
@@ -103,10 +105,27 @@ async function decodeRasterTexture(format, data, options = {}) {
     [bytes],
     { type: format === 'png' ? 'image/png' : 'image/jpeg' },
   );
-  const bitmap = await createImageBitmap(blob);
-  try {
-    if (options.signal?.aborted === true) throw abortError();
+  const image = await createImageBitmap(blob);
+  if (options.signal?.aborted === true) {
+    image.close?.();
+    throw abortError();
+  }
+  return { image, width: image.width, height: image.height };
+}
 
+/**
+ * Decode a browser-supported raster image into a top-down RGBA DataTexture.
+ * PNG and JPEG already have native decoders, so they do not need a format chunk.
+ *
+ * @param {'png' | 'jpeg'} format Raster format.
+ * @param {Uint8Array | ArrayBuffer} data Complete image bytes.
+ * @param {{ signal?: AbortSignal }} [options] Cancellation.
+ * @returns {Promise<Texture>} Decoded texture.
+ */
+async function decodeRasterTexture(format, data, options = {}) {
+  const preview = await decodeRasterPreview(format, data, options);
+  const bitmap = preview.image;
+  try {
     const canvas = typeof OffscreenCanvas === 'function'
       ? new OffscreenCanvas(bitmap.width, bitmap.height)
       : document.createElement('canvas');

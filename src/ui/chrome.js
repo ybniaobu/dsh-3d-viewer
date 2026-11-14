@@ -132,6 +132,7 @@ export function AxisGizmo({ view, t }) {
     // the SVG at most once per ~32ms so DOM attribute conversion and temporary
     // strings do not scale with input/render frequency.
     const latest = { x: 0, y: 0, z: 0, w: 1 };
+    const last = { x: Number.NaN, y: Number.NaN, z: Number.NaN, w: Number.NaN };
     let frame = 0;
     let lastUpdate = 0;
     const interval = 32;
@@ -144,6 +145,15 @@ export function AxisGizmo({ view, t }) {
         frame = requestAnimationFrame(render);
         return;
       }
+      const changed = Math.abs(latest.x - last.x)
+        + Math.abs(latest.y - last.y)
+        + Math.abs(latest.z - last.z)
+        + Math.abs(latest.w - last.w);
+      if (changed < 1e-5) return;
+      last.x = latest.x;
+      last.y = latest.y;
+      last.z = latest.z;
+      last.w = latest.w;
       lastUpdate = now;
       updateAxis(latest, 1, 0, 0, xLineRef, xPosDotRef, xPosLabelRef, xNegDotRef);
       updateAxis(latest, 0, 1, 0, yLineRef, yPosDotRef, yPosLabelRef, yNegDotRef);

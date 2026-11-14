@@ -166,6 +166,9 @@ export function hideBakedShadowPlanes(object) {
   const modelSize = modelBox.getSize(new Vector3());
   const maxDimension = Math.max(modelSize.x, modelSize.y, modelSize.z);
   if (!Number.isFinite(maxDimension) || maxDimension <= 0) return 0;
+  const modelArea = modelSize.x * modelSize.z;
+  const childBox = new Box3();
+  const childSize = new Vector3();
 
   let hidden = 0;
   object.traverse((child) => {
@@ -179,22 +182,32 @@ export function hideBakedShadowPlanes(object) {
     const triangles = (index === null ? position.count : index.count) / 3;
     if (triangles > 4) return;
 
-    const materials = Array.isArray(child.material) ? child.material : [child.material];
-    const transparent = materials.some((material) => material !== null
-      && (material.transparent === true || material.opacity < 1));
+    const material = child.material;
+    const materials = Array.isArray(material) ? material : null;
+    const transparent = materials === null
+      ? material !== null && material !== undefined
+        && (material.transparent === true || material.opacity < 1)
+      : materials.some((entry) => entry !== null
+        && (entry.transparent === true || entry.opacity < 1));
     if (!transparent) return;
 
-    const label = `${child.name} ${materials.map((material) => material?.name ?? '').join(' ')}`;
+    let label = child.name;
+    if (materials === null) {
+      if (material?.name) label += ` ${material.name}`;
+    } else {
+      for (const entry of materials) {
+        if (entry?.name) label += ` ${entry.name}`;
+      }
+    }
     if (/plane|shadow|ground|contact|bake/iu.test(label) === false) return;
 
-    const box = new Box3().setFromObject(child);
-    const size = box.getSize(new Vector3());
-    const thickness = Math.min(size.x, size.y, size.z);
-    const horizontalArea = size.x * size.z;
-    const modelArea = modelSize.x * modelSize.z;
+    childBox.setFromObject(child);
+    childBox.getSize(childSize);
+    const thickness = Math.min(childSize.x, childSize.y, childSize.z);
+    const horizontalArea = childSize.x * childSize.z;
 
     if (thickness > maxDimension * 0.001) return;
-    if (box.min.y - modelBox.min.y > maxDimension * 0.005) return;
+    if (childBox.min.y - modelBox.min.y > maxDimension * 0.005) return;
     if (horizontalArea < modelArea * 0.25) return;
 
     child.visible = false;

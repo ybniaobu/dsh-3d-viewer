@@ -47,14 +47,21 @@ function samePosition(array, a, b) {
  *
  * @param {Float32Array} array Position storage.
  * @param {number} count Number of vertices.
+ * @param {{ slots: Uint32Array | null }} scratch Reusable hash table.
  * @returns {number} Distinct position count.
  */
-function countUniqueFloat32(array, count) {
+function countUniqueFloat32(array, count, scratch) {
   const bits = new Uint32Array(array.buffer, array.byteOffset, array.length);
   let capacity = 16;
   while (capacity < count * 2) capacity *= 2;
   const mask = capacity - 1;
-  const slots = new Uint32Array(capacity);
+  let slots = scratch.slots;
+  if (slots === null || slots.length < capacity) {
+    slots = new Uint32Array(capacity);
+    scratch.slots = slots;
+  } else {
+    slots.fill(0, 0, capacity);
+  }
   let unique = 0;
 
   for (let index = 0; index < count; index += 1) {
@@ -96,16 +103,17 @@ function countUniqueFloat32(array, count) {
  * to exact key strings.
  *
  * @param {import('three').BufferAttribute | import('three').InterleavedBufferAttribute} position Position attribute.
+ * @param {{ slots: Uint32Array | null }} scratch Reusable hash table.
  * @returns {number} Distinct position count.
  */
-function countUniquePositions(position) {
+function countUniquePositions(position, scratch) {
   const count = position.count;
   if (count <= 0) return 0;
 
   if (position.itemSize === 3
     && position.array instanceof Float32Array
     && position.isInterleavedBufferAttribute !== true) {
-    return countUniqueFloat32(position.array, count);
+    return countUniqueFloat32(position.array, count, scratch);
   }
 
   const seen = new Set();
@@ -166,6 +174,7 @@ export function collectModelStats(object) {
   let vertices = 0;
   let triangles = 0;
   const materials = new Set();
+  const vertexScratch = { slots: null };
 
   /** @param {import('three').Object3D} node */
   const visit = (node) => {
@@ -188,7 +197,7 @@ export function collectModelStats(object) {
           meshes += 1;
           const position = geometry.getAttribute('position');
           if (position !== undefined && position.count > 0) {
-            vertices += countUniquePositions(position);
+            vertices += countUniquePositions(position, vertexScratch);
             const index = geometry.getIndex();
             triangles += Math.floor((index === null ? position.count : index.count) / 3);
           }

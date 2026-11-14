@@ -191,6 +191,23 @@ function bitDepthFor(texture) {
   return 8;
 }
 
+/** Cached 2D contexts; a canvas keeps the same context for its lifetime. */
+const CONTEXTS = new WeakMap();
+
+/**
+ * @param {HTMLCanvasElement} canvas Target canvas.
+ * @returns {CanvasRenderingContext2D} Cached 2D context.
+ */
+function contextFor(canvas) {
+  let context = CONTEXTS.get(canvas);
+  if (context === undefined) {
+    context = canvas.getContext('2d');
+    if (context === null) throw new Error('The 2D canvas context is unavailable.');
+    CONTEXTS.set(canvas, context);
+  }
+  return context;
+}
+
 /**
  * Prepare an off-screen canvas with the raw image so vertical flipping can use
  * a canvas transform instead of copying the whole RGBA buffer.
@@ -213,9 +230,7 @@ function ensureSourceCanvas(image, sourceCanvasRef, sourceImageRef) {
     sourceImageRef.current = null;
   }
   if (sourceImageRef.current !== image) {
-    const sourceContext = source.getContext('2d');
-    if (sourceContext === null) throw new Error('The texture preview canvas is unavailable.');
-    sourceContext.putImageData(image, 0, 0);
+    contextFor(source).putImageData(image, 0, 0);
     sourceImageRef.current = image;
   }
   return source;
@@ -235,8 +250,7 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
     canvas.width = image.width;
     canvas.height = image.height;
   }
-  const context = canvas.getContext('2d');
-  if (context === null) throw new Error('The 2D canvas context is unavailable.');
+  const context = contextFor(canvas);
 
   if (!flipY) {
     context.putImageData(image, 0, 0);
@@ -255,13 +269,45 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
 }
 
 /**
+ * Draw either raw RGBA pixels or an ImageBitmap/HTMLImageElement.
+ *
+ * @param {HTMLCanvasElement | null} canvas Target canvas.
+ * @param {ImageData | ImageBitmap} image Preview image.
+ * @param {boolean} [flipY] Draw with a vertical canvas transform.
+ * @param {{ current: HTMLCanvasElement | null }} [sourceCanvasRef] Off-screen canvas ref.
+ * @param {{ current: ImageData | null }} [sourceImageRef] Last uploaded image ref.
+ * @returns {void}
+ */
+function drawPreviewImage(canvas, image, flipY = false, sourceCanvasRef, sourceImageRef) {
+  if (image?.data !== undefined) {
+    drawImageData(canvas, image, flipY, sourceCanvasRef, sourceImageRef);
+    return;
+  }
+  if (canvas === null) throw new Error('The texture preview canvas is unavailable.');
+  if (canvas.width !== image.width || canvas.height !== image.height) {
+    canvas.width = image.width;
+    canvas.height = image.height;
+  }
+  const context = contextFor(canvas);
+  if (!flipY) {
+    context.drawImage(image, 0, 0);
+    return;
+  }
+  context.save();
+  context.translate(0, image.height);
+  context.scale(1, -1);
+  context.drawImage(image, 0, 0);
+  context.restore();
+}
+
+/**
  * @param {HTMLCanvasElement | null} canvas Target canvas.
  * @param {import('three').Texture} texture Decoded texture.
  * @returns {{
  *   width: number,
  *   height: number,
  *   bits: number,
- *   image?: ImageData,
+ *   image?: ImageData | ImageBitmap,
  *   glPreview?: { render: (flipY: boolean) => void, dispose: () => void },
  * }} Preview metadata.
  */
@@ -329,6 +375,7 @@ function TextureViewer(props) {
   const stageRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const imageRef = React.useRef(null);
+  const bitmapOwnedRef = React.useRef(false);
   const glPreviewRef = React.useRef(null);
   const sourceCanvasRef = React.useRef(null);
   const sourceImageRef = React.useRef(null);
@@ -410,6 +457,10 @@ function TextureViewer(props) {
       setFlipY(false);
       glPreviewRef.current?.dispose();
       glPreviewRef.current = null;
+      if (bitmapOwnedRef.current) {
+        imageRef.current?.close?.();
+        bitmapOwnedRef.current = false;
+      }
       imageRef.current = null;
       sourceImageRef.current = null;
       try {
@@ -439,8 +490,9 @@ function TextureViewer(props) {
         const cached = cacheKey === null ? null : getCachedPreview(cacheKey);
         if (cached !== null) {
           if (disposed || controller.signal.aborted) return;
-          drawImageData(canvasRef.current, cached.image);
+          drawPreviewImage(canvasRef.current, cached.image);
           imageRef.current = cached.image;
+          bitmapOwnedRef.current = false;
           glPreviewRef.current = null;
           sourceImageRef.current = null;
           activeRenderer?.loaded?.(version);
@@ -458,6 +510,42 @@ function TextureViewer(props) {
 
         const runtime = await loadViewerRuntime();
         if (disposed || controller.signal.aborted) return;
+
+        if ((format === 'png' || format === 'jpeg')
+          && typeof runtime.decodeRasterPreview === 'function') {
+          const preview = await runtime.decodeRasterPreview(format, bytes, {
+            signal: controller.signal,
+          });
+          if (disposed || controller.signal.aborted) {
+            preview.image.close?.();
+            return;
+          }
+
+          try {
+            // ImageBitmap is not shared through the preview cache: closing an
+            // evicted bitmap would blank another open texture viewer.
+            bitmapOwnedRef.current = true;
+            imageRef.current = preview.image;
+            glPreviewRef.current = null;
+            sourceImageRef.current = null;
+            drawPreviewImage(canvasRef.current, preview.image);
+            activeRenderer?.loaded?.(version);
+            resetView();
+            setFlipY(false);
+            setState({
+              status: 'ready',
+              failure: null,
+              width: preview.width,
+              height: preview.height,
+              bits: 8,
+            });
+            return;
+          } catch (error) {
+            preview.image.close?.();
+            bitmapOwnedRef.current = false;
+            throw error;
+          }
+        }
 
         const texture = await runtime.decodeWorkspaceTexture(format, bytes, {
           signal: controller.signal,
@@ -498,9 +586,9 @@ function TextureViewer(props) {
             if (flipYRef.current || glPreviewRef.current !== info.glPreview) return;
             if (getCachedPreview(cacheKey) !== null) return;
             try {
-              const context = canvasRef.current?.getContext('2d');
-              if (context === null || context === undefined) return;
-              const image = context.getImageData(0, 0, info.width, info.height);
+              const canvas = canvasRef.current;
+              if (canvas === null) return;
+              const image = contextFor(canvas).getImageData(0, 0, info.width, info.height);
               setCachedPreview(cacheKey, {
                 image,
                 width: info.width,
@@ -548,7 +636,7 @@ function TextureViewer(props) {
       return;
     }
     if (imageRef.current === null) return;
-    drawImageData(
+    drawPreviewImage(
       canvasRef.current,
       imageRef.current,
       flipY,
@@ -560,6 +648,10 @@ function TextureViewer(props) {
   React.useEffect(() => () => {
     glPreviewRef.current?.dispose();
     glPreviewRef.current = null;
+    if (bitmapOwnedRef.current) {
+      imageRef.current?.close?.();
+      bitmapOwnedRef.current = false;
+    }
     if (viewRafRef.current !== 0) {
       cancelAnimationFrame(viewRafRef.current);
       viewRafRef.current = 0;

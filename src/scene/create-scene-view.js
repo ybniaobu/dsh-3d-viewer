@@ -191,6 +191,7 @@ export function createSceneView(host, object, stats, options = {}) {
   const dragSpherical = new Spherical();
   let disposed = false;
   let onScreen = true;
+  let cameraFrame = 0;
   let lastWidth = 0;
   let lastHeight = 0;
   let lastPixelRatio = 0;
@@ -212,7 +213,7 @@ export function createSceneView(host, object, stats, options = {}) {
     autoPosition.setFromSphericalCoords(autoRadius, autoPhi, theta).add(controls.target);
     camera.position.copy(autoPosition);
     camera.lookAt(controls.target);
-    emitCamera();
+    scheduleCamera();
   }
 
   function emitCamera() {
@@ -228,6 +229,14 @@ export function createSceneView(host, object, stats, options = {}) {
         console.error('[dsh-3d-viewer] Camera listener failed.', error);
       }
     }
+  }
+
+  function scheduleCamera() {
+    if (disposed || cameraFrame !== 0) return;
+    cameraFrame = requestAnimationFrame(() => {
+      cameraFrame = 0;
+      if (!disposed) emitCamera();
+    });
   }
 
   loop = createRenderLoop((delta, timestamp) => {
@@ -307,7 +316,7 @@ export function createSceneView(host, object, stats, options = {}) {
     // Auto-rotate no longer goes through OrbitControls, so every change event
     // here comes from a user interaction (orbit, zoom, or pan).
     syncView();
-    emitCamera();
+    scheduleCamera();
     loop.invalidate();
   }
 
@@ -419,7 +428,7 @@ export function createSceneView(host, object, stats, options = {}) {
     camera.lookAt(controls.target);
     camera.updateMatrixWorld();
     if (autoRotate) beginAutoRotate();
-    emitCamera();
+    scheduleCamera();
     syncView();
     loop.invalidate();
   }
@@ -518,6 +527,10 @@ export function createSceneView(host, object, stats, options = {}) {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    if (cameraFrame !== 0) {
+      cancelAnimationFrame(cameraFrame);
+      cameraFrame = 0;
+    }
     resolveEnvironmentReady();
 
     loop.dispose();

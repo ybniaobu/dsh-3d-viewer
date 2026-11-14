@@ -1,7 +1,7 @@
 import * as THREE_BRIDGE from './loaders/three-bridge.js';
 import { collectModelStats, disposeObject } from './core/model.js';
 import { decodeTextureInWorker } from './loaders/texture-worker-client.js';
-import { decodeWorkspaceTexture, readWorkspaceFile } from './loaders/workspace.js';
+import { decodeRasterPreview, decodeWorkspaceTexture, readWorkspaceFile } from './loaders/workspace.js';
 import { loadModelBytes, preloadModelFormat } from './loaders/model-loader.js';
 import { createSceneView } from './scene/create-scene-view.js';
 import { prefetchEnvironment } from './scene/environment.js';
@@ -16,6 +16,7 @@ export {
   collectModelStats,
   createSceneView,
   createWebGlPreview,
+  decodeRasterPreview,
   decodeTextureInWorker,
   decodeWorkspaceTexture,
   disposeObject,

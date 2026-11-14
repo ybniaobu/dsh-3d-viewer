@@ -29,10 +29,21 @@ export function previewCacheKey(address, version, format) {
 }
 
 /**
+ * @param {{ image?: ImageData | ImageBitmap, bytes?: number }} preview Preview result.
+ * @returns {number} Approximate retained bytes.
+ */
+function previewBytes(preview) {
+  const explicit = Number(preview?.bytes);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const size = preview?.image?.data?.byteLength;
+  return Number.isFinite(size) ? size : 0;
+}
+
+/**
  * Read the most recently used cached preview.
  *
  * @param {string} key Cache key.
- * @returns {{ image: ImageData, width: number, height: number, bits: number } | null} Cached preview.
+ * @returns {{ image: ImageData | ImageBitmap, width: number, height: number, bits: number, bytes?: number, dispose?: () => void } | null} Cached preview.
  */
 export function getCachedPreview(key) {
   const entry = entries.get(key);
@@ -48,25 +59,26 @@ export function getCachedPreview(key) {
  * everything only to exceed the same budget again.
  *
  * @param {string} key Cache key.
- * @param {{ image: ImageData, width: number, height: number, bits: number }} preview Preview result.
+ * @param {{ image: ImageData | ImageBitmap, width: number, height: number, bits: number, bytes?: number, dispose?: () => void }} preview Preview result.
  * @returns {boolean} Whether the preview was retained.
  */
 export function setCachedPreview(key, preview) {
-  const image = preview?.image;
-  const size = image?.data?.byteLength;
+  const size = previewBytes(preview);
   if (!Number.isFinite(size) || size <= 0 || size > previewCacheBudget()) return false;
 
   const previous = entries.get(key);
   if (previous !== undefined) {
     entries.delete(key);
-    cachedBytes -= previous.image.data.byteLength;
+    cachedBytes -= previewBytes(previous);
+    previous.dispose?.();
   }
 
   while (entries.size > 0 && (entries.size >= MAX_ENTRIES || cachedBytes + size > previewCacheBudget())) {
     const oldestKey = entries.keys().next().value;
     const oldest = entries.get(oldestKey);
     entries.delete(oldestKey);
-    cachedBytes -= oldest.image.data.byteLength;
+    cachedBytes -= previewBytes(oldest);
+    oldest.dispose?.();
   }
 
   entries.set(key, preview);

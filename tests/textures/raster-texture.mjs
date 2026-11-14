@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { decodeWorkspaceTexture } from '../../src/loaders/workspace.js';
+import { decodeRasterPreview, decodeWorkspaceTexture } from '../../src/loaders/workspace.js';
 
 const originalCreateImageBitmap = globalThis.createImageBitmap;
 const originalOffscreenCanvas = globalThis.OffscreenCanvas;
@@ -59,8 +59,13 @@ try {
   assert.equal(jpeg.image.width, 2);
   jpeg.dispose();
 
-  assert.deepEqual(bitmapTypes, ['image/png', 'image/jpeg']);
-  assert.equal(closed, 2, 'decoded bitmaps must be closed');
+  const preview = await decodeRasterPreview('png', new Uint8Array([7, 8]));
+  assert.equal(preview.width, 2);
+  assert.equal(preview.height, 1);
+  preview.image.close?.();
+
+  assert.deepEqual(bitmapTypes, ['image/png', 'image/jpeg', 'image/png']);
+  assert.equal(closed, 3, 'decoded bitmaps must be closed');
 } finally {
   if (originalCreateImageBitmap === undefined) delete globalThis.createImageBitmap;
   else globalThis.createImageBitmap = originalCreateImageBitmap;
