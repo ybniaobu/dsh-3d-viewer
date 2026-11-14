@@ -117,13 +117,8 @@ async function decodeRasterTexture(format, data, options = {}) {
     context.drawImage(bitmap, 0, 0);
 
     const image = context.getImageData(0, 0, bitmap.width, bitmap.height);
-    const pixels = new Uint8Array(
-      image.data.buffer,
-      image.data.byteOffset,
-      image.data.byteLength,
-    ).slice();
     const texture = new DataTexture(
-      pixels,
+      image.data,
       bitmap.width,
       bitmap.height,
       RGBAFormat,

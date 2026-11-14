@@ -51,7 +51,10 @@ function samePosition(array, a, b) {
  */
 function countUniqueFloat32(array, count) {
   const bits = new Uint32Array(array.buffer, array.byteOffset, array.length);
-  const buckets = new Map();
+  let capacity = 16;
+  while (capacity < count * 2) capacity *= 2;
+  const mask = capacity - 1;
+  const slots = new Uint32Array(capacity);
   let unique = 0;
 
   for (let index = 0; index < count; index += 1) {
@@ -62,31 +65,22 @@ function countUniqueFloat32(array, count) {
     const xBits = x === 0 ? 0 : (x !== x ? NAN_BITS : bits[offset]);
     const yBits = y === 0 ? 0 : (y !== y ? NAN_BITS : bits[offset + 1]);
     const zBits = z === 0 ? 0 : (z !== z ? NAN_BITS : bits[offset + 2]);
-    const key = hashPosition(xBits, yBits, zBits);
-    const bucket = buckets.get(key);
+    const key = hashPosition(xBits, yBits, zBits) >>> 0;
 
-    if (bucket === undefined) {
-      buckets.set(key, index);
-      unique += 1;
-      continue;
-    }
-
-    if (typeof bucket === 'number') {
-      if (samePosition(array, bucket, index)) continue;
-      buckets.set(key, [bucket, index]);
-      unique += 1;
-      continue;
-    }
-
-    let found = false;
-    for (let candidate = 0; candidate < bucket.length; candidate += 1) {
-      if (samePosition(array, bucket[candidate], index)) {
-        found = true;
+    let slot = key & mask;
+    let owner = slots[slot];
+    let duplicate = false;
+    while (owner !== 0) {
+      if (samePosition(array, owner - 1, index)) {
+        duplicate = true;
         break;
       }
+      slot = (slot + 1) & mask;
+      owner = slots[slot];
     }
-    if (!found) {
-      bucket.push(index);
+
+    if (!duplicate) {
+      slots[slot] = index + 1;
       unique += 1;
     }
   }

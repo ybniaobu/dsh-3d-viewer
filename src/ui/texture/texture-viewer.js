@@ -96,7 +96,7 @@ function imageDataFor(texture) {
 
   if (byteData && !hdr && !sourceBottomUp && channels === 4) {
     return new ImageData(
-      new Uint8ClampedArray(data.subarray(0, pixels * 4)),
+      new Uint8ClampedArray(data.buffer, data.byteOffset, pixels * 4),
       width,
       height,
     );
@@ -231,8 +231,10 @@ function ensureSourceCanvas(image, sourceCanvasRef, sourceImageRef) {
  */
 function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImageRef) {
   if (canvas === null) throw new Error('The texture preview canvas is unavailable.');
-  canvas.width = image.width;
-  canvas.height = image.height;
+  if (canvas.width !== image.width || canvas.height !== image.height) {
+    canvas.width = image.width;
+    canvas.height = image.height;
+  }
   const context = canvas.getContext('2d');
   if (context === null) throw new Error('The 2D canvas context is unavailable.');
 
@@ -341,6 +343,8 @@ function TextureViewer(props) {
   if (viewRef.current === null) {
     viewRef.current = { scale: 1, x: 0, y: 0 };
   }
+  const lastTransformRef = React.useRef({ x: Number.NaN, y: Number.NaN, scale: Number.NaN });
+  const lastZoomPercentRef = React.useRef(-1);
   const zoomedRef = React.useRef(false);
   const zoomLabelRef = React.useRef(null);
   const loadBytesRef = React.useRef(typeof props.loadBytes === 'function' ? props.loadBytes : null);
@@ -356,11 +360,20 @@ function TextureViewer(props) {
   // React only re-renders when the zoomed flag crosses 1x.
   const applyView = () => {
     const current = viewRef.current;
-    if (canvasRef.current !== null) {
-      canvasRef.current.style.transform = `translate(${current.x}px, ${current.y}px) scale(${current.scale})`;
+    const canvas = canvasRef.current;
+    if (canvas !== null) {
+      const previous = lastTransformRef.current;
+      if (previous.x !== current.x || previous.y !== current.y || previous.scale !== current.scale) {
+        canvas.style.transform = `translate3d(${current.x}px, ${current.y}px, 0) scale(${current.scale})`;
+        previous.x = current.x;
+        previous.y = current.y;
+        previous.scale = current.scale;
+      }
     }
-    if (zoomLabelRef.current !== null) {
-      zoomLabelRef.current.textContent = `${Math.round(current.scale * 100)}%`;
+    const zoomPercent = Math.round(current.scale * 100);
+    if (zoomLabelRef.current !== null && zoomPercent !== lastZoomPercentRef.current) {
+      lastZoomPercentRef.current = zoomPercent;
+      zoomLabelRef.current.textContent = `${zoomPercent}%`;
     }
     const nextZoomed = current.scale > 1.001;
     if (nextZoomed !== zoomedRef.current) {
