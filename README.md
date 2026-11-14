@@ -7,7 +7,7 @@ English | [中文](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.zh
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, STL, and DAE models, plus TGA, EXR, HDR, PNG, and JPEG textures. Orbit, zoom, switch camera views, materials and environments, and play embedded animations.
+Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, STL, and DAE models, plus PNG, JPEG, TGA, EXR, and HDR textures. Orbit, zoom, switch camera views, materials and environments, and play embedded animations.
 
 ![3D Viewer preview](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.gif)
 
@@ -77,10 +77,10 @@ Notes:
 
 | Format | Decoded data | Preview |
 | --- | --- | --- |
+| **PNG / JPG / JPEG** | 8-bit RGBA | Direct pixels, alpha preserved |
 | **TGA** | 8-bit RGBA | Direct pixels, alpha preserved |
 | **EXR** | 16-bit half or 32-bit float, 1–4 channels | Tone-mapped to SDR |
 | **HDR** | Radiance RGBE, 16-bit half by default | Tone-mapped to SDR |
-| **PNG / JPG / JPEG** | 8-bit RGBA | Direct pixels, alpha preserved |
 
 - EXR and HDR use exposure 1 and Reinhard tone mapping before sRGB output.
 - HDR previews use a WebGL2 tone-mapping pass when available, with a half-float CPU fallback.

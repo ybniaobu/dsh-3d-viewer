@@ -7,7 +7,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、STL、DAE 模型，以及 TGA、EXR、HDR、PNG、JPEG 纹理。可旋转，缩放，切换视角、材质与环境，并播放内嵌动画。
+在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、STL、DAE 模型，以及 PNG、JPEG、TGA、EXR、HDR 纹理。可旋转，缩放，切换视角、材质与环境，并播放内嵌动画。
 
 ![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.gif)
 
@@ -77,10 +77,10 @@
 
 | 格式 | 解码数据 | 预览 |
 | --- | --- | --- |
+| **PNG / JPG / JPEG** | 8-bit RGBA | 直接显示，保留 alpha |
 | **TGA** | 8-bit RGBA | 直接显示，保留 alpha |
 | **EXR** | 16-bit half 或 32-bit float，1–4 通道 | 色调映射到 SDR |
 | **HDR** | Radiance RGBE，默认 16-bit half | 色调映射到 SDR |
-| **PNG / JPG / JPEG** | 8-bit RGBA | 直接显示，保留 alpha |
 
 - EXR、HDR 使用曝光 1 和 Reinhard 色调映射后输出 sRGB。
 - HDR 预览在支持 WebGL2 时使用 GPU 色调映射，否则回退到 half-float CPU 路径。

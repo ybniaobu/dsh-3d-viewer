@@ -18,6 +18,22 @@
 
 /** @type {Readonly<Record<string, TextureFormatDefinition>>} */
 export const TEXTURE_FORMATS = Object.freeze({
+  png: Object.freeze({
+    id: 'dsh-3d-viewer/png',
+    format: 'png',
+    extensions: Object.freeze(['png']),
+    titleKey: 'pngRendererTitle',
+    badgeKey: 'pngBadge',
+    label: 'PNG',
+  }),
+  jpeg: Object.freeze({
+    id: 'dsh-3d-viewer/jpeg',
+    format: 'jpeg',
+    extensions: Object.freeze(['jpg', 'jpeg']),
+    titleKey: 'jpegRendererTitle',
+    badgeKey: 'jpegBadge',
+    label: 'JPEG',
+  }),
   tga: Object.freeze({
     id: 'dsh-3d-viewer/tga',
     format: 'tga',
@@ -41,22 +57,6 @@ export const TEXTURE_FORMATS = Object.freeze({
     titleKey: 'hdrRendererTitle',
     badgeKey: 'hdrBadge',
     label: 'HDR',
-  }),
-  png: Object.freeze({
-    id: 'dsh-3d-viewer/png',
-    format: 'png',
-    extensions: Object.freeze(['png']),
-    titleKey: 'pngRendererTitle',
-    badgeKey: 'pngBadge',
-    label: 'PNG',
-  }),
-  jpeg: Object.freeze({
-    id: 'dsh-3d-viewer/jpeg',
-    format: 'jpeg',
-    extensions: Object.freeze(['jpg', 'jpeg']),
-    titleKey: 'jpegRendererTitle',
-    badgeKey: 'jpegBadge',
-    label: 'JPEG',
   }),
 });
 

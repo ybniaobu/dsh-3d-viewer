@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "3D-Viewer",
-    "description": "3D-Modelle und Texturen aus dem Sitzungsarbeitsbereich in der rechten DSH-Seitenleiste anzeigen. Unterstützte Formate: FBX, OBJ, glTF, GLB, STL und DAE sowie TGA-, EXR-, HDR-, PNG- und JPEG-Texturen."
+    "description": "3D-Modelle und Texturen aus dem Sitzungsarbeitsbereich in der rechten DSH-Seitenleiste anzeigen. Unterstützte Formate: FBX, OBJ, glTF, GLB, STL und DAE sowie PNG-, JPEG-, TGA-, EXR- und HDR-Texturen."
   }
 }

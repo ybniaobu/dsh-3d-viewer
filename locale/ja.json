@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "3D ビューアー",
-    "description": "DSH の右サイドバーでセッション ワークスペースの 3D モデルとテクスチャをプレビューします。対応形式は FBX、OBJ、glTF、GLB、STL、DAE モデルと、TGA、EXR、HDR、PNG、JPEG テクスチャです。"
+    "description": "DSH の右サイドバーでセッション ワークスペースの 3D モデルとテクスチャをプレビューします。対応形式は FBX、OBJ、glTF、GLB、STL、DAE モデルと、PNG、JPEG、TGA、EXR、HDR テクスチャです。"
   }
 }
