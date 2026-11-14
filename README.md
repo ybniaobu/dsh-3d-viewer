@@ -45,6 +45,8 @@ Open the right sidebar, choose **Files** (`Mod+P`), and click a supported file.
 
 **Model previews:** drag to orbit, scroll to zoom, and right-drag to pan. The toolbar resets the view, starts auto-rotation, and toggles the grid and wireframe. Click or drag the orientation axes to change the camera view. Material and environment pickers are in the top-right controls.
 
+**Animations:** when the model has clips, the animation bar appears above the bottom hint. Use play/pause, pick a clip by name, drag the progress slider to seek, and choose a playback speed from `0.5×` to `2×`. Switching clips resets to that clip's first frame while preserving the current play/pause state.
+
 **Texture previews:** scroll to zoom, drag to pan when zoomed, and use **Fit** or double-click to reset. **Flip Y** handles bottom-up sources. The badge shows dimensions, bit depth, and zoom.
 
 Large files and the first environment switch may take a few seconds. If no preview appears, refresh the page and then restart DSH.
