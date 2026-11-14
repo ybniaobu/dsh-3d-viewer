@@ -128,6 +128,10 @@ assert.deepEqual(registration.injectKeys, [
   'sidebar.right.tab.document',
 ]);
 assert.equal(registration.effects.length, 21);
+assert.deepEqual(
+  Object.keys(registration.dictionaries.dictionaries).sort(),
+  ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'],
+);
 
 const fbx = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/fbx');
 const obj = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/obj');

@@ -3,7 +3,7 @@ import { TEXTURE_FORMAT_ENTRIES } from './texture-formats.js';
 import { parseFileAddress } from './loaders/address.js';
 import { VIEWER_COMPONENTS } from './ui/model-viewer.js';
 import { TEXTURE_VIEWER_COMPONENTS } from './ui/texture-viewer.js';
-import { en, zh } from './ui/dictionaries.js';
+import { de, en, es, fr, ja, pt, ru, zh } from './ui/dictionaries.js';
 import { loadViewerRuntime } from './ui/viewer-runtime.js';
 
 const NS = 'dsh3dViewer';
@@ -416,7 +416,7 @@ function registerPreview(ctx, t, entry, component) {
 export function apply(ctx) {
   const t = ctx.locale.bind(NS);
 
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-3d-viewer: dictionaries');
+  ctx.effect(() => ctx.locale.register(NS, { de, en, es, fr, ja, pt, ru, zh }), 'dsh-3d-viewer: dictionaries');
 
   for (const entry of FORMAT_ENTRIES) {
     registerPreview(ctx, t, entry, VIEWER_COMPONENTS[entry.format]);

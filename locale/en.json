@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "3D Viewer",
-    "description": "Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, and STL models, plus TGA, EXR, and HDR textures."
+    "description": "Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, STL, and DAE models, plus TGA, EXR, HDR, PNG, and JPEG textures."
   }
 }
