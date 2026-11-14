@@ -30,6 +30,7 @@ export function createLazyTextureViewer(format) {
   return function LazyTextureViewer(props) {
     const [Component, setComponent] = React.useState(null);
     const [failure, setFailure] = React.useState(false);
+    const revision = props.content?.revision;
 
     React.useEffect(() => {
       let active = true;
@@ -48,7 +49,7 @@ export function createLazyTextureViewer(format) {
       return () => {
         active = false;
       };
-    }, [format]);
+    }, [format, revision]);
 
     if (Component !== null) {
       return h(Component, { ...props, format });

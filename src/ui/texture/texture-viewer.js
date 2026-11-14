@@ -261,6 +261,7 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
   }
 
   const source = ensureSourceCanvas(image, sourceCanvasRef, sourceImageRef);
+  context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.translate(0, image.height);
   context.scale(1, -1);

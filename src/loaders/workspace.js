@@ -481,6 +481,7 @@ class WorkspaceTextureLoader extends Loader {
  *   manager: LoadingManager,
  *   settle: (timeout?: number) => Promise<void>,
  *   onTextureLoad: (listener: (texture: Texture) => void) => () => void,
+ *   trackBlobUrl: (url: string) => void,
  *   dispose: () => void,
  * }} Asset loader controls.
  */
@@ -545,6 +546,9 @@ export function createWorkspaceAssetLoader({ readFile, signal, onWarn = warn }) 
     manager,
     settle,
     onTextureLoad,
+    trackBlobUrl(url) {
+      blobUrls.add(url);
+    },
     dispose,
   };
 }

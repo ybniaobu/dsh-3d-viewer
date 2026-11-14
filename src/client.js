@@ -18,10 +18,6 @@ const EXTRA_LOCALE_CHUNKS = Object.freeze({
   pt: './client.locales.pt.js',
   ru: './client.locales.ru.js',
 });
-const localeRegistrations = new Map();
-const localeLoadPromises = new Map();
-let styleElement = null;
-let stylePromise = null;
 
 // workspace-files caps a single byte window at 2 MiB. Root files are read in
 // parallel windows so a large model is not serialized into one long request.
@@ -395,21 +391,24 @@ function hasAsyncLoader() {
 }
 
 /**
- * Load and inject the shared viewer stylesheet once.
+ * Load and inject the shared viewer stylesheet once per activation.
  *
+ * @param {{ active: boolean, stylePromise: Promise<HTMLStyleElement | null> | null, styleElement: HTMLStyleElement | null }} activation Activation state.
  * @returns {Promise<HTMLStyleElement | null>} Injected style element, if any.
  */
-function loadStyleSheet() {
+function loadStyleSheet(activation) {
   if (!hasAsyncLoader() || typeof document === 'undefined') return Promise.resolve(null);
-  if (stylePromise === null) {
-    stylePromise = asyncChunk('./client.ui.styles.js')
+  if (activation.stylePromise === null) {
+    activation.stylePromise = asyncChunk('./client.ui.styles.js')
       .then((module) => {
-        if (typeof module.CSS !== 'string' || module.CSS.length === 0) return null;
+        if (!activation.active || typeof module.CSS !== 'string' || module.CSS.length === 0) {
+          return null;
+        }
         const style = document.createElement('style');
         style.dataset.dsh3dViewer = 'styles';
         style.textContent = module.CSS;
         document.head.append(style);
-        styleElement = style;
+        activation.styleElement = style;
         return style;
       })
       .catch((error) => {
@@ -417,7 +416,7 @@ function loadStyleSheet() {
         return null;
       });
   }
-  return stylePromise;
+  return activation.stylePromise;
 }
 
 /**
@@ -429,27 +428,34 @@ function loadStyleSheet() {
  *
  * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
  * @param {string} locale Active locale id.
+ * @param {{ active: boolean, localeRegistrations: Map<string, () => void>, localeLoadPromises: Map<string, Promise<void>> }} activation Activation state.
  * @returns {Promise<void>} Resolves after the dictionary is registered.
  */
-async function ensureLocaleDictionary(ctx, locale) {
+async function ensureLocaleDictionary(ctx, locale, activation) {
   const spec = EXTRA_LOCALE_CHUNKS[locale];
-  if (spec === undefined || localeRegistrations.has(locale) || !hasAsyncLoader()) return;
-  const pending = localeLoadPromises.get(locale);
+  if (!activation.active
+    || spec === undefined
+    || activation.localeRegistrations.has(locale)
+    || !hasAsyncLoader()) return;
+  const pending = activation.localeLoadPromises.get(locale);
   if (pending !== undefined) return pending;
 
   const task = (async () => {
     try {
       const module = await asyncChunk(spec);
+      if (!activation.active) return;
       const dictionary = module[locale];
-      if (dictionary === undefined || localeRegistrations.has(locale)) return;
-      localeRegistrations.set(locale, ctx.locale.register(NS, locale, dictionary));
+      if (dictionary === undefined || activation.localeRegistrations.has(locale)) return;
+      activation.localeRegistrations.set(locale, ctx.locale.register(NS, locale, dictionary));
     } catch (error) {
       console.warn(`[dsh-3d-viewer] Could not load the "${locale}" locale.`, error);
     } finally {
-      localeLoadPromises.delete(locale);
+      if (activation.localeLoadPromises.get(locale) === task) {
+        activation.localeLoadPromises.delete(locale);
+      }
     }
   })();
-  localeLoadPromises.set(locale, task);
+  activation.localeLoadPromises.set(locale, task);
   return task;
 }
 
@@ -500,32 +506,40 @@ function registerPreview(ctx, t, entry, component) {
  */
 export async function apply(ctx) {
   const t = ctx.locale.bind(NS);
-  let disposed = false;
+  const activation = {
+    active: true,
+    stylePromise: null,
+    styleElement: null,
+    localeRegistrations: new Map(),
+    localeLoadPromises: new Map(),
+  };
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'dsh-3d-viewer: dictionaries');
   ctx.effect(() => () => {
-    disposed = true;
-    for (const dispose of localeRegistrations.values()) dispose();
-    localeRegistrations.clear();
-    localeLoadPromises.clear();
-    styleElement?.remove();
-    styleElement = null;
-    stylePromise = null;
+    activation.active = false;
+    for (const dispose of activation.localeRegistrations.values()) dispose();
+    activation.localeRegistrations.clear();
+    activation.localeLoadPromises.clear();
+    activation.styleElement?.remove();
+    activation.styleElement = null;
+    activation.stylePromise = null;
   }, 'dsh-3d-viewer: lazy assets');
 
   if (typeof ctx.locale.subscribe === 'function') {
     ctx.effect(() => ctx.locale.subscribe(() => {
       const active = ctx.locale.getLocale?.().active;
-      if (typeof active === 'string') void ensureLocaleDictionary(ctx, active);
+      if (typeof active === 'string') void ensureLocaleDictionary(ctx, active, activation);
     }), 'dsh-3d-viewer: locale changes');
   }
 
   const active = ctx.locale.getLocale?.().active;
   await Promise.all([
-    typeof active === 'string' ? ensureLocaleDictionary(ctx, active) : Promise.resolve(),
-    loadStyleSheet(),
+    typeof active === 'string'
+      ? ensureLocaleDictionary(ctx, active, activation)
+      : Promise.resolve(),
+    loadStyleSheet(activation),
   ]);
-  if (disposed) return;
+  if (!activation.active) return;
 
   for (const entry of FORMAT_ENTRIES) {
     registerPreview(ctx, t, entry, VIEWER_COMPONENTS[entry.format]);

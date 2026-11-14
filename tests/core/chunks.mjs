@@ -8,6 +8,9 @@ import { createWorkspaceAssetLoader } from '../../src/loaders/workspace.js';
 import { textureImageData } from '../../src/ui/texture/texture-viewer.js';
 
 globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
+// ColladaLoader triangulates n-gons through this constructor; it must be in the
+// shared bridge or DAE polygons with more than four vertices fail at parse time.
+assert.equal(typeof THREE_BRIDGE.Triangle, 'function', 'the Three bridge must expose Triangle');
 globalThis.window = { innerWidth: 1024, innerHeight: 768 };
 globalThis.ImageData = class ImageData {
   constructor(data, width, height) {
