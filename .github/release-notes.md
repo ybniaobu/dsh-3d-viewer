@@ -11,6 +11,7 @@ Preview FBX, OBJ, glTF, GLB, DAE, and STL models plus PNG, JPEG, TGA, EXR, and H
 - Animation playback now has a clip picker, a `0.5×`–`2×` speed selector, seeking, and idle prewarming for later clips.
 - Localized the viewer and plugin metadata for all eight DSH languages: German, English, Spanish, French, Japanese, Portuguese, Russian, and Chinese.
 - Reduced per-frame allocations in the axis gizmo, camera notifications, texture zooming, animation labels, and texture decoding.
+- Split styles, non-baseline locales, and the texture viewer into lazy UI chunks. The entry bundle drops from about 91 KB to 39 KB, and the EXR/HDR worker from about 304 KB to 132 KB.
 - Reused vertex-deduplication and glTF shadow-detection scratch buffers to lower loading-time memory pressure.
 - Refreshed the texture controls so Fit and Flip Y stay together while metadata wraps on narrow sidebars.
 

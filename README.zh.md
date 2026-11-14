@@ -95,13 +95,14 @@
 | 核心 | `src/core/`：字节工具、格式注册、模型统计 |
 | 客户端注册 | `src/client.js`、`src/core/formats.js`、`src/core/texture-formats.js` |
 | 懒加载运行时 | `src/runtime.js`、`src/ui/viewer-runtime.js`、`src/loaders/address.js` |
+| 懒加载 UI chunk | `client.styles.js`、`client.texture.js`、`client.locale.*.js` |
 | UI | `src/ui/`：框架、控件、偏好；`ui/model/` 与 `ui/texture/` 分别为两个查看器 |
 | 场景 | `src/scene/`：渲染器、相机、材质、环境、网格、后处理 |
 | 加载器 | `src/loaders/`：格式分派、工作区读取、纹理 Worker，`formats/` 为格式加载器 |
 | 第三方代码 | `src/vendor/`：修改过的 FBX Loader |
 | 构建与测试 | `build.mjs`、`tests/run.mjs`、`tests/**/*.mjs` |
 
-`src/client.js` 只负责注册预览；`src/runtime.js` 持有 Three.js、场景初始化和格式懒加载分派。UI 入口不直接导入 Three.js；场景代码和纹理 WebGL 预览随懒加载运行时加载。
+`src/client.js` 只负责注册预览；`src/runtime.js` 持有 Three.js、场景初始化和格式懒加载分派。UI 入口不直接导入 Three.js；场景代码和纹理 WebGL 预览随懒加载运行时加载。样式、非中英文语言字典和纹理查看器同样是包内 UI chunk；中英文字典保留在入口中，作为 DSH 的回退语言。
 
 ## 开发
 
@@ -113,7 +114,7 @@ npm run build
 
 CI 使用 Node.js 24。`npm test` 会让每个 `tests/**/*.mjs` 在独立进程中运行。
 
-`npm run build` 会写出 UI 入口、懒加载运行时、格式/纹理 chunk 和 EXR/HDR Worker 到 `dist/`。修改源码后需提交重建的 `dist/` 文件。
+`npm run build` 会写出 UI 入口、懒加载运行时、格式/纹理 chunk、UI 样式/语言/纹理 chunk 和 EXR/HDR Worker 到 `dist/`。修改源码后需提交重建的 `dist/` 文件。
 
 ## 许可证
 

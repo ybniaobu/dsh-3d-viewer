@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { StatusOverlay } from '../chrome.js';
-import { CSS } from '../styles.js';
-import { en } from '../dictionaries.js';
+import { en } from '../dictionaries/en.js';
 import { loadViewerRuntime } from '../viewer-runtime.js';
 import {
   getCachedPreview,
@@ -815,7 +814,6 @@ function TextureViewer(props) {
     'data-dsh3d-texture': '',
     'data-dsh3d-format': format,
   },
-  h('style', null, CSS),
   h('div', {
     ref: stageRef,
     className: 'dsh3dv-texture-stage',

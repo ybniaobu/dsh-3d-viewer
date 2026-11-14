@@ -110,7 +110,7 @@ const moduleExports = entry.factory((name) => {
   if (name === 'react') return React;
   throw new Error(`unexpected runtime import: ${name}`);
 });
-moduleExports.apply(ctx);
+await moduleExports.apply(ctx);
 
 assert.deepEqual(moduleExports.inject, ['documentPreviews', 'slots', 'locale', 'remote', 'remote.workspaceFiles']);
 assert.equal(registration.definitions.length, 10);
@@ -127,10 +127,10 @@ assert.deepEqual(registration.injectKeys, [
   'sidebar.right.tab.document',
   'sidebar.right.tab.document',
 ]);
-assert.equal(registration.effects.length, 21);
+assert.equal(registration.effects.length, 22);
 assert.deepEqual(
   Object.keys(registration.dictionaries.dictionaries).sort(),
-  ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'],
+  ['en', 'zh'],
 );
 
 const fbx = registration.definitions.find((definition) => definition.id === 'dsh-3d-viewer/fbx');

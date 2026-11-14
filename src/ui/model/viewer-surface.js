@@ -9,7 +9,6 @@ import {
   Toolbar,
   ViewControls,
 } from '../chrome.js';
-import { CSS } from '../styles.js';
 
 const h = React.createElement;
 
@@ -47,7 +46,6 @@ export function ViewerSurface({
   const stats = runtime.stats;
 
   return h('div', { className: 'dsh3dv-root', 'data-dsh3d-viewer': '', 'data-dsh3d-format': format },
-    h('style', null, CSS),
     h('div', { className: 'dsh3dv-stage', ref: hostRef, 'data-dsh3d-stage': '' }),
     h('div', { className: 'dsh3dv-top' },
       h(Badge, { t, format, glb }),

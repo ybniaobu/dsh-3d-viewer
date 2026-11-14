@@ -95,13 +95,14 @@ Notes:
 | Core | `src/core/`: byte helpers, formats, model statistics |
 | Client registration | `src/client.js`, `src/core/formats.js`, `src/core/texture-formats.js` |
 | Lazy runtime | `src/runtime.js`, `src/ui/viewer-runtime.js`, `src/loaders/address.js` |
+| Lazy UI chunks | `client.styles.js`, `client.texture.js`, `client.locale.*.js` |
 | UI | `src/ui/`: chrome, controls, preferences; `ui/model/` and `ui/texture/` for the two viewers |
 | Scene | `src/scene/`: renderer, camera, materials, environment, grid, post-processing |
 | Loaders | `src/loaders/`: dispatch, workspace reads, texture workers, `formats/` loaders |
 | Vendored code | `src/vendor/`: modified FBX loader |
 | Build and tests | `build.mjs`, `tests/run.mjs`, `tests/**/*.mjs` |
 
-`src/client.js` only registers previews; `src/runtime.js` owns Three.js, scene setup, and lazy format dispatch. The UI shell does not import Three.js directly; scene code and the texture WebGL preview load with the lazy runtime.
+`src/client.js` only registers previews; `src/runtime.js` owns Three.js, scene setup, and lazy format dispatch. The UI shell does not import Three.js directly; scene code and the texture WebGL preview load with the lazy runtime. Styles, non-baseline locale dictionaries, and the texture viewer are also package-local UI chunks; English and Chinese dictionaries stay in the entry bundle as the DSH fallbacks.
 
 ## Development
 
@@ -113,7 +114,7 @@ npm run build
 
 CI uses Node.js 24. `npm test` runs each `tests/**/*.mjs` file in its own process.
 
-`npm run build` writes the UI entry, lazy runtime, format/texture chunks, and the EXR/HDR worker to `dist/`. Commit the rebuilt `dist/` files when source changes.
+`npm run build` writes the UI entry, lazy runtime, format/texture chunks, UI style/locale/texture chunks, and the EXR/HDR worker to `dist/`. Commit the rebuilt `dist/` files when source changes.
 
 ## License
 

@@ -142,6 +142,56 @@ ${chunkCode}
   console.log(`Built dist/${chunkName} (${Buffer.byteLength(chunkWrapped)} bytes) for ${pkg.name}.`);
 }
 
+// Styles, non-baseline locales, and the texture viewer are UI chunks. They are
+// requested only when the viewer starts, the locale is selected, or a texture
+// document is opened; the formats above stay independent.
+const AUX_CHUNK_ENTRIES = Object.freeze({
+  styles: { entry: 'src/ui/styles.js' },
+  texture: { entry: 'src/ui/texture/texture-viewer.js', external: ['react'] },
+  'locale.de': { entry: 'src/ui/dictionaries/de.js' },
+  'locale.es': { entry: 'src/ui/dictionaries/es.js' },
+  'locale.fr': { entry: 'src/ui/dictionaries/fr.js' },
+  'locale.ja': { entry: 'src/ui/dictionaries/ja.js' },
+  'locale.pt': { entry: 'src/ui/dictionaries/pt.js' },
+  'locale.ru': { entry: 'src/ui/dictionaries/ru.js' },
+});
+for (const [name, definition] of Object.entries(AUX_CHUNK_ENTRIES)) {
+  const chunkBundle = resolve(root, `.build/chunk-${name}.cjs`);
+  await esbuild.build({
+    absWorkingDir: root,
+    entryPoints: [resolve(root, definition.entry)],
+    bundle: true,
+    format: 'cjs',
+    platform: 'browser',
+    target: ['chrome120', 'edge120'],
+    external: definition.external,
+    minify: true,
+    legalComments: 'none',
+    logLevel: 'warning',
+    outfile: chunkBundle,
+  });
+
+  const chunkCode = (await readFile(chunkBundle, 'utf8')).trimEnd();
+  const chunkName = `client.${name}.js`;
+  const chunkWrapped = `/*! dsh-3d-viewer ${name} UI chunk | ${definition.entry}. See THIRD_PARTY_NOTICES.md. */
+window.__ModuleLoader__.load({
+  id: ${JSON.stringify(pkg.name)},
+  chunk: ${JSON.stringify(chunkName)},
+  factory(require) {
+    var localRequire = (id) => id === 'three' ? globalThis.__DSH3DV_THREE__ : require(id);
+    var module = { exports: {} };
+    var exports = module.exports;
+    (function (require, module, exports) {
+${chunkCode}
+    })(localRequire, module, module.exports);
+    return module.exports;
+  },
+});
+`;
+  await writeFile(resolve(distDir, chunkName), chunkWrapped);
+  console.log(`Built dist/${chunkName} (${Buffer.byteLength(chunkWrapped)} bytes) for ${pkg.name}.`);
+}
+
 // EXR/HDR parsing is CPU-heavy for large images. This lazy chunk carries a
 // standalone worker bundle; the preview creates a Blob worker from its source
 // string and falls back to the main-thread decoders when workers are blocked.
@@ -156,6 +206,17 @@ await esbuild.build({
   minify: true,
   legalComments: 'none',
   logLevel: 'warning',
+  // EXRLoader/HDRLoader only need Three's core classes. Resolving `three` to
+  // three.core.js keeps WebGLRenderer and the rest of the browser build out of
+  // this worker, cutting the lazy worker by more than half.
+  plugins: [{
+    name: 'three-core-worker',
+    setup(build) {
+      build.onResolve({ filter: /^three$/ }, () => ({
+        path: resolve(root, 'node_modules/three/build/three.core.js'),
+      }));
+    },
+  }],
   outfile: workerBundle,
 });
 const workerCode = (await readFile(workerBundle, 'utf8')).trimEnd();

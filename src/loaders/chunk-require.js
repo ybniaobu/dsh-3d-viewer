@@ -12,7 +12,7 @@
 export function asyncChunk(spec) {
   const loader = globalThis.__DSH3DV_REQUIRE__;
   if (loader === undefined || typeof loader.async !== 'function') {
-    return Promise.reject(new Error('The DSH module loader is unavailable for 3D format chunks.'));
+    return Promise.reject(new Error('The DSH module loader is unavailable for lazy chunks.'));
   }
   return loader.async(spec);
 }

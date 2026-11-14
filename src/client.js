@@ -1,13 +1,27 @@
 import { FORMAT_ENTRIES } from './core/formats.js';
 import { TEXTURE_FORMAT_ENTRIES } from './core/texture-formats.js';
 import { parseFileAddress } from './loaders/address.js';
+import { asyncChunk } from './loaders/chunk-require.js';
 import { VIEWER_COMPONENTS } from './ui/model/model-viewer.js';
-import { TEXTURE_VIEWER_COMPONENTS } from './ui/texture/texture-viewer.js';
-import { de, en, es, fr, ja, pt, ru, zh } from './ui/dictionaries.js';
+import { createLazyTextureViewer } from './ui/texture/lazy-texture-viewer.js';
+import { en } from './ui/dictionaries/en.js';
+import { zh } from './ui/dictionaries/zh.js';
 import { loadViewerRuntime } from './ui/viewer-runtime.js';
 
 const NS = 'dsh3dViewer';
 const BODY_SLOT = 'sidebar.right.tab.document';
+const EXTRA_LOCALE_CHUNKS = Object.freeze({
+  de: './client.locale.de.js',
+  es: './client.locale.es.js',
+  fr: './client.locale.fr.js',
+  ja: './client.locale.ja.js',
+  pt: './client.locale.pt.js',
+  ru: './client.locale.ru.js',
+});
+const localeRegistrations = new Map();
+const localeLoadPromises = new Map();
+let styleElement = null;
+let stylePromise = null;
 
 // workspace-files caps a single byte window at 2 MiB. Root files are read in
 // parallel windows so a large model is not serialized into one long request.
@@ -370,6 +384,76 @@ async function readDocumentBytes(ctx, address, signal) {
 }
 
 /**
+ * Whether the DSH module loader exposed by the entry wrapper is available.
+ * Unit tests import the bundle directly and deliberately have no async loader.
+ *
+ * @returns {boolean} True when lazy chunks can be requested.
+ */
+function hasAsyncLoader() {
+  const loader = globalThis.__DSH3DV_REQUIRE__;
+  return loader !== undefined && typeof loader.async === 'function';
+}
+
+/**
+ * Load and inject the shared viewer stylesheet once.
+ *
+ * @returns {Promise<HTMLStyleElement | null>} Injected style element, if any.
+ */
+function loadStyleSheet() {
+  if (!hasAsyncLoader() || typeof document === 'undefined') return Promise.resolve(null);
+  if (stylePromise === null) {
+    stylePromise = asyncChunk('./client.styles.js')
+      .then((module) => {
+        if (typeof module.CSS !== 'string' || module.CSS.length === 0) return null;
+        const style = document.createElement('style');
+        style.dataset.dsh3dViewer = 'styles';
+        style.textContent = module.CSS;
+        document.head.append(style);
+        styleElement = style;
+        return style;
+      })
+      .catch((error) => {
+        console.warn('[dsh-3d-viewer] Could not load viewer styles.', error);
+        return null;
+      });
+  }
+  return stylePromise;
+}
+
+/**
+ * Load one non-baseline locale dictionary on demand and register it.
+ *
+ * English and Chinese stay in the entry bundle: English is DSH's fallback and
+ * both are cheap enough to keep available before the first render. Other
+ * languages are loaded only when selected.
+ *
+ * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
+ * @param {string} locale Active locale id.
+ * @returns {Promise<void>} Resolves after the dictionary is registered.
+ */
+async function ensureLocaleDictionary(ctx, locale) {
+  const spec = EXTRA_LOCALE_CHUNKS[locale];
+  if (spec === undefined || localeRegistrations.has(locale) || !hasAsyncLoader()) return;
+  const pending = localeLoadPromises.get(locale);
+  if (pending !== undefined) return pending;
+
+  const task = (async () => {
+    try {
+      const module = await asyncChunk(spec);
+      const dictionary = module[locale];
+      if (dictionary === undefined || localeRegistrations.has(locale)) return;
+      localeRegistrations.set(locale, ctx.locale.register(NS, locale, dictionary));
+    } catch (error) {
+      console.warn(`[dsh-3d-viewer] Could not load the "${locale}" locale.`, error);
+    } finally {
+      localeLoadPromises.delete(locale);
+    }
+  })();
+  localeLoadPromises.set(locale, task);
+  return task;
+}
+
+/**
  * Register one document format and its right-Sidebar view body.
  *
  * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
@@ -412,16 +496,41 @@ function registerPreview(ctx, t, entry, component) {
  * components cannot drift apart.
  *
  * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
+ * @returns {Promise<void>} Resolves after the initial locale and styles load.
  */
-export function apply(ctx) {
+export async function apply(ctx) {
   const t = ctx.locale.bind(NS);
+  let disposed = false;
 
-  ctx.effect(() => ctx.locale.register(NS, { de, en, es, fr, ja, pt, ru, zh }), 'dsh-3d-viewer: dictionaries');
+  ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'dsh-3d-viewer: dictionaries');
+  ctx.effect(() => () => {
+    disposed = true;
+    for (const dispose of localeRegistrations.values()) dispose();
+    localeRegistrations.clear();
+    localeLoadPromises.clear();
+    styleElement?.remove();
+    styleElement = null;
+    stylePromise = null;
+  }, 'dsh-3d-viewer: lazy assets');
+
+  if (typeof ctx.locale.subscribe === 'function') {
+    ctx.effect(() => ctx.locale.subscribe(() => {
+      const active = ctx.locale.getLocale?.().active;
+      if (typeof active === 'string') void ensureLocaleDictionary(ctx, active);
+    }), 'dsh-3d-viewer: locale changes');
+  }
+
+  const active = ctx.locale.getLocale?.().active;
+  await Promise.all([
+    typeof active === 'string' ? ensureLocaleDictionary(ctx, active) : Promise.resolve(),
+    loadStyleSheet(),
+  ]);
+  if (disposed) return;
 
   for (const entry of FORMAT_ENTRIES) {
     registerPreview(ctx, t, entry, VIEWER_COMPONENTS[entry.format]);
   }
   for (const entry of TEXTURE_FORMAT_ENTRIES) {
-    registerPreview(ctx, t, entry, TEXTURE_VIEWER_COMPONENTS[entry.format]);
+    registerPreview(ctx, t, entry, createLazyTextureViewer(entry.format));
   }
 }
