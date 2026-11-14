@@ -7,6 +7,7 @@ import {
   RGBAFormat,
   Texture,
   UnsignedByteType,
+  SRGBColorSpace,
 } from 'three';
 import {
   ABSOLUTE_PATH,
@@ -83,15 +84,77 @@ async function decodeWorkspaceTextureOnMainThread(format, data) {
 }
 
 /**
+ * Decode a browser-supported raster image into a top-down RGBA DataTexture.
+ * PNG and JPEG already have native decoders, so they do not need a format chunk.
+ *
+ * @param {'png' | 'jpeg'} format Raster format.
+ * @param {Uint8Array | ArrayBuffer} data Complete image bytes.
+ * @param {{ signal?: AbortSignal }} [options] Cancellation.
+ * @returns {Promise<Texture>} Decoded texture.
+ */
+async function decodeRasterTexture(format, data, options = {}) {
+  if (options.signal?.aborted === true) throw abortError();
+  if (typeof createImageBitmap !== 'function') {
+    throw new Error('This browser cannot decode PNG or JPEG textures.');
+  }
+
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const blob = new Blob(
+    [bytes],
+    { type: format === 'png' ? 'image/png' : 'image/jpeg' },
+  );
+  const bitmap = await createImageBitmap(blob);
+  try {
+    if (options.signal?.aborted === true) throw abortError();
+
+    const canvas = typeof OffscreenCanvas === 'function'
+      ? new OffscreenCanvas(bitmap.width, bitmap.height)
+      : document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (context === null) throw new Error('The image preview canvas is unavailable.');
+    context.drawImage(bitmap, 0, 0);
+
+    const image = context.getImageData(0, 0, bitmap.width, bitmap.height);
+    const pixels = new Uint8Array(
+      image.data.buffer,
+      image.data.byteOffset,
+      image.data.byteLength,
+    ).slice();
+    const texture = new DataTexture(
+      pixels,
+      bitmap.width,
+      bitmap.height,
+      RGBAFormat,
+      UnsignedByteType,
+    );
+    texture.colorSpace = SRGBColorSpace;
+    texture.flipY = false;
+    texture.generateMipmaps = false;
+    texture.userData.dsh3dHdr = false;
+    texture.userData.dsh3dSourceBottomUp = false;
+    texture.needsUpdate = true;
+    return texture;
+  } finally {
+    bitmap.close?.();
+  }
+}
+
+/**
  * Decode a specialized texture. EXR/HDR use the shared worker so large
  * sidecars do not block the model view; TGA and worker fallbacks stay local.
  *
- * @param {'tga' | 'exr' | 'hdr'} format Texture format.
+ * @param {'tga' | 'exr' | 'hdr' | 'png' | 'jpeg'} format Texture format.
  * @param {Uint8Array | ArrayBuffer} data Complete bytes.
  * @param {{ signal?: AbortSignal, transfer?: boolean }} [options] Cancellation and buffer ownership.
  * @returns {Promise<Texture>} Decoded texture.
  */
 export async function decodeWorkspaceTexture(format, data, options = {}) {
+  if (format === 'png' || format === 'jpeg') {
+    return decodeRasterTexture(format, data, options);
+  }
+
   // The runtime chunk owns the worker client; format chunks and standalone
   // tests can still decode on the main thread when that service is absent.
   const decodeInWorker = globalThis.__DSH3DV_TEXTURE_WORKER__?.decodeTextureInWorker;

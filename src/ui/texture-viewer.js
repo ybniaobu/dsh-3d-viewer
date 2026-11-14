@@ -292,7 +292,7 @@ function drawTexture(canvas, texture, runtime) {
  * Standalone TGA/EXR/HDR preview body.
  *
  * @param {{
- *   format: 'tga' | 'exr' | 'hdr',
+ *   format: 'tga' | 'exr' | 'hdr' | 'png' | 'jpeg',
  *   content?: { kind?: string, data?: Uint8Array | ArrayBuffer | string },
  *   renderer?: { revision?: number, loaded?: (version?: unknown) => void, failed?: () => void },
  *   loadBytes?: (address: string, signal: AbortSignal) => Promise<object>,
@@ -777,7 +777,7 @@ function TextureViewer(props) {
 /**
  * Build a texture preview bound to one format.
  *
- * @param {'tga' | 'exr' | 'hdr'} format Texture format.
+ * @param {'tga' | 'exr' | 'hdr' | 'png' | 'jpeg'} format Texture format.
  * @returns {(props: object) => unknown} Slot body component.
  */
 function createTextureViewer(format) {
@@ -796,9 +796,17 @@ export const ExrViewer = createTextureViewer('exr');
 /** HDR document body. */
 export const HdrViewer = createTextureViewer('hdr');
 
+/** PNG document body. */
+export const PngViewer = createTextureViewer('png');
+
+/** JPEG document body. */
+export const JpegViewer = createTextureViewer('jpeg');
+
 /** Texture slot bodies keyed by the texture format registry id. */
 export const TEXTURE_VIEWER_COMPONENTS = Object.freeze({
   tga: TgaViewer,
   exr: ExrViewer,
   hdr: HdrViewer,
+  png: PngViewer,
+  jpeg: JpegViewer,
 });

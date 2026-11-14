@@ -8,7 +8,7 @@
 /**
  * @typedef {{
  *   id: string,
- *   format: 'tga' | 'exr' | 'hdr',
+ *   format: 'tga' | 'exr' | 'hdr' | 'png' | 'jpeg',
  *   extensions: readonly string[],
  *   titleKey: string,
  *   badgeKey: string,
@@ -41,6 +41,22 @@ export const TEXTURE_FORMATS = Object.freeze({
     titleKey: 'hdrRendererTitle',
     badgeKey: 'hdrBadge',
     label: 'HDR',
+  }),
+  png: Object.freeze({
+    id: 'dsh-3d-viewer/png',
+    format: 'png',
+    extensions: Object.freeze(['png']),
+    titleKey: 'pngRendererTitle',
+    badgeKey: 'pngBadge',
+    label: 'PNG',
+  }),
+  jpeg: Object.freeze({
+    id: 'dsh-3d-viewer/jpeg',
+    format: 'jpeg',
+    extensions: Object.freeze(['jpg', 'jpeg']),
+    titleKey: 'jpegRendererTitle',
+    badgeKey: 'jpegBadge',
+    label: 'JPEG',
   }),
 });
 
