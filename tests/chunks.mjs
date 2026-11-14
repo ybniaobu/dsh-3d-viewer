@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { disposeObject } from '../src/model.js';
 import * as THREE_BRIDGE from '../src/loaders/three-bridge.js';
 import { createWorkspaceAssetLoader } from '../src/loaders/workspace.js';
-import { textureImageData } from '../src/ui/texture-viewer.js';
+import { textureChannelImage, textureImageData } from '../src/ui/texture-viewer.js';
 
 globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
 globalThis.window = { innerWidth: 1024, innerHeight: 768 };
@@ -109,6 +109,17 @@ const tgaPreview = textureImageData(tgaTexture);
 assert.equal(tgaPreview.width, 2);
 assert.equal(tgaPreview.height, 2);
 assert.equal(tgaPreview.data.length, 16);
+
+const channelSource = new globalThis.ImageData(
+  new Uint8ClampedArray([10, 20, 30, 40]),
+  1,
+  1,
+);
+assert.deepEqual([...textureChannelImage(channelSource, 'r').data], [10, 10, 10, 255]);
+assert.deepEqual([...textureChannelImage(channelSource, 'g').data], [20, 20, 20, 255]);
+assert.deepEqual([...textureChannelImage(channelSource, 'b').data], [30, 30, 30, 255]);
+assert.deepEqual([...textureChannelImage(channelSource, 'a').data], [40, 40, 40, 255]);
+assert.equal(textureChannelImage(channelSource, 'rgba'), channelSource);
 tgaTexture.dispose();
 
 const bottomUpPreview = textureImageData({
