@@ -56,6 +56,10 @@ function resolveDaeImagePath(reference, resourceAddress) {
  * @returns {Promise<Map<string, string>>} Reference-to-URL mapping.
  */
 async function collectDaeImageUrls(text, assets, options, onWarn) {
+  // Most DAE files have no external image library. Avoid parsing the complete
+  // XML document twice just to discover an empty reference set.
+  if (!/<init_from\b/iu.test(text)) return new Map();
+
   const references = new Set();
   if (typeof DOMParser === 'function') {
     const document = new DOMParser().parseFromString(text, 'text/xml');
@@ -99,28 +103,55 @@ async function collectDaeImageUrls(text, assets, options, onWarn) {
 }
 
 /**
- * Wait for ColladaLoader's own TextureLoader/TGALoader items.
+ * Track ColladaLoader's own TextureLoader/TGALoader items.
+ *
+ * LoadingManager keeps its item counters private, so observe onStart/onLoad
+ * around parse instead of consulting a non-existent `itemsTotal` field.
  *
  * @param {import('three').LoadingManager} manager Collada loading manager.
- * @param {number} [timeout] Maximum wait in milliseconds.
- * @returns {Promise<void>} Resolves when the manager becomes idle.
+ * @returns {{
+ *   wait: (timeout?: number) => Promise<void>,
+ *   restore: () => void,
+ * }} Start-gated waiter and handler restore.
  */
-function waitForColladaTextures(manager, timeout = 5000) {
-  if (manager.itemsTotal === 0) return Promise.resolve();
-  return new Promise((resolve) => {
-    const previousOnLoad = manager.onLoad;
-    let timer = 0;
-    const finish = () => {
-      clearTimeout(timer);
-      if (manager.onLoad === finish) manager.onLoad = previousOnLoad;
-      resolve();
-    };
-    timer = setTimeout(finish, timeout);
-    manager.onLoad = () => {
-      previousOnLoad?.();
-      finish();
-    };
+function trackColladaTextures(manager) {
+  const previousOnStart = manager.onStart;
+  const previousOnLoad = manager.onLoad;
+  let started = false;
+  let resolveDone;
+  const done = new Promise((resolve) => {
+    resolveDone = resolve;
   });
+
+  manager.onStart = (...args) => {
+    started = true;
+    previousOnStart?.(...args);
+  };
+  manager.onLoad = (...args) => {
+    previousOnLoad?.(...args);
+    resolveDone();
+  };
+
+  return {
+    async wait(timeout = 5000) {
+      if (!started) return;
+      let timer;
+      try {
+        await Promise.race([
+          done,
+          new Promise((resolve) => {
+            timer = setTimeout(resolve, timeout);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    restore() {
+      manager.onStart = previousOnStart;
+      manager.onLoad = previousOnLoad;
+    },
+  };
 }
 
 /**
@@ -170,6 +201,7 @@ export async function loadDaeModel(data, options = {}) {
     onWarn(`[dsh-3d-viewer] Could not load a referenced DAE resource: ${url}`);
   };
 
+  const textureTracker = assets === null ? null : trackColladaTextures(assets.manager);
   try {
     const text = decodeText(data);
     if (assets !== null) {
@@ -188,7 +220,7 @@ export async function loadDaeModel(data, options = {}) {
     }
     await Promise.all([
       assets?.settle(),
-      assets === null ? Promise.resolve() : waitForColladaTextures(assets.manager),
+      textureTracker === null ? Promise.resolve() : textureTracker.wait(),
     ]);
     if (options.signal?.aborted === true) {
       assets?.dispose();
@@ -199,5 +231,7 @@ export async function loadDaeModel(data, options = {}) {
   } catch (error) {
     assets?.dispose();
     throw error;
+  } finally {
+    textureTracker?.restore();
   }
 }
