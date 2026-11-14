@@ -32,6 +32,10 @@ for (const language of Object.keys(languages)) {
   assert.ok(value.meta.description.length > 0, `${language} locale description must not be empty`);
 }
 
+const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+const englishMeta = JSON.parse(await readFile(new URL('../../locale/en.json', import.meta.url), 'utf8'));
+assert.equal(pkg.description, englishMeta.meta.description, 'package description must match the English locale metadata');
+
 console.log('Localization verified:', {
   languages: Object.keys(languages),
   keys: expectedKeys.length,
