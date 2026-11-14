@@ -109,6 +109,11 @@ body[data-ds-dark-theme] .dsh3dv-root,.dsh3dv-root[data-dsh3d-tone="dark"]{--dsh
 .dsh3dv-progress::-moz-range-track{height:2px;border-radius:999px;background:var(--dsw-alias-border-l2)}
 .dsh3dv-progress::-moz-range-thumb{width:9px;height:9px;border:0;border-radius:50%;background:var(--dsw-alias-label-secondary)}
 .dsh3dv-anim-time{flex:none;color:var(--dsw-alias-label-secondary);font-size:var(--dsh3dv-label-size);font-weight:var(--dsh3dv-label-weight);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;white-space:nowrap}
+.dsh3dv-speed-picker{position:relative;flex:none;width:36px;max-width:none}
+.dsh3dv-speed{display:block;box-sizing:border-box;width:36px;height:24px;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:var(--dsh3dv-label-size);font-weight:var(--dsh3dv-label-weight);line-height:24px;text-align:center;cursor:pointer;outline:none}
+.dsh3dv-speed:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
+.dsh3dv-speed-menu{left:auto;right:-6px;width:48px;min-width:48px;max-width:48px}
+.dsh3dv-speed-menu .dsh3dv-anim-option{padding:0 3px;text-align:center}
 .dsh3dv-overlay{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;box-sizing:border-box;pointer-events:none}
 .dsh3dv-overlay[data-dsh3d-status="loading"]{animation:dsh3dv-loading-in .16s ease .36s both}
 @keyframes dsh3dv-loading-in{from{opacity:0}to{opacity:1}}

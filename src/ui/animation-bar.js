@@ -3,6 +3,7 @@ import { PauseIcon, PlayIcon } from './icons.js';
 import { formatSeconds } from './primitives.js';
 
 const h = React.createElement;
+export const SPEEDS = Object.freeze([0.5, 0.75, 1, 1.5, 2]);
 
 /**
  * Animation transport bar.
@@ -14,6 +15,7 @@ const h = React.createElement;
  *   view: {
  *     setAnimationPlaying: (playing: boolean) => void,
  *     setAnimationClip: (index: number) => void,
+ *     setAnimationSpeed: (rate: number) => void,
  *     seekAnimation: (seconds: number) => void,
  *     subscribeAnimation: (listener: (state: { time: number, duration: number }) => void) => () => void,
  *   },
@@ -24,12 +26,16 @@ const h = React.createElement;
 export function AnimationBar({ view, clips, t }) {
   const [playing, setPlaying] = React.useState(true);
   const [index, setIndex] = React.useState(0);
+  const [speed, setSpeed] = React.useState(1);
   const [open, setOpen] = React.useState(false);
+  const [speedOpen, setSpeedOpen] = React.useState(false);
   const progressRef = React.useRef(null);
   const timeRef = React.useRef(null);
   const pickerRef = React.useRef(null);
   const buttonRef = React.useRef(null);
   const optionRefs = React.useRef([]);
+  const speedPickerRef = React.useRef(null);
+  const speedButtonRef = React.useRef(null);
   const lastSecondsRef = React.useRef(0);
 
   const clipName = (clip, clipIndex) => clip.name || t('animationFallback', { n: clipIndex + 1 });
@@ -70,6 +76,25 @@ export function AnimationBar({ view, clips, t }) {
     };
   }, [open]);
 
+  React.useEffect(() => {
+    if (!speedOpen) return undefined;
+
+    const onPointerDown = (event) => {
+      if (speedPickerRef.current?.contains(event.target) !== true) setSpeedOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      setSpeedOpen(false);
+      speedButtonRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [speedOpen]);
+
   const updateDisplay = (seconds) => {
     const next = Math.min(Math.max(Number(seconds) || 0, 0), animationMax);
     lastSecondsRef.current = next;
@@ -82,6 +107,10 @@ export function AnimationBar({ view, clips, t }) {
   React.useEffect(() => {
     view.setAnimationPlaying(playing);
   }, [view, playing]);
+
+  React.useEffect(() => {
+    view.setAnimationSpeed(speed);
+  }, [view, speed]);
 
   React.useEffect(() => {
     view.setAnimationClip(activeIndex);
@@ -174,5 +203,41 @@ export function AnimationBar({ view, clips, t }) {
   h('span', {
     className: 'dsh3dv-anim-time',
     ref: timeRef,
-  }, timeLabel));
+  }, timeLabel),
+  h('div', { className: 'dsh3dv-speed-picker', ref: speedPickerRef },
+    h('button', {
+      type: 'button',
+      className: 'dsh3dv-speed',
+      ref: speedButtonRef,
+      title: t('animationSpeed'),
+      'aria-label': t('animationSpeed'),
+      'aria-haspopup': 'listbox',
+      'aria-expanded': speedOpen,
+      onClick: () => setSpeedOpen((value) => !value),
+      onKeyDown: (event) => {
+        if (event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        setSpeedOpen(true);
+      },
+    }, `${speed}×`),
+    speedOpen
+      ? h('div', {
+        className: 'dsh3dv-anim-menu dsh3dv-speed-menu',
+        role: 'listbox',
+        'aria-label': t('animationSpeed'),
+      }, SPEEDS.map((rate) => h('button', {
+        key: rate,
+        type: 'button',
+        role: 'option',
+        'aria-selected': rate === speed,
+        className: rate === speed
+          ? 'dsh3dv-anim-option dsh3dv-anim-option--active'
+          : 'dsh3dv-anim-option',
+        onClick: () => {
+          setSpeed(rate);
+          setSpeedOpen(false);
+          speedButtonRef.current?.focus();
+        },
+      }, `${rate}×`)))
+      : null));
 }

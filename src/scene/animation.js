@@ -16,6 +16,7 @@ const NOTIFY_INTERVAL_MS = 33;
  *   animations: Array<{ name: string, duration: number }>,
  *   setPlaying: (enabled: boolean) => boolean,
  *   setClip: (index: number) => boolean,
+ *   setSpeed: (rate: number) => boolean,
  *   seek: (seconds: number) => boolean,
  *   update: (delta: number, timestamp: number) => void,
  *   snapshot: () => { time: number, duration: number, index: number, playing: boolean },
@@ -34,6 +35,7 @@ export function createAnimationController(object, { onTick } = {}) {
   const actions = new Array(clips.length).fill(null);
   let index = 0;
   let playing = false;
+  let playbackRate = 1;
   let lastNotify = -Infinity;
   let disposed = false;
   // Listeners read this synchronously and must not retain it. Reusing the
@@ -97,11 +99,21 @@ export function createAnimationController(object, { onTick } = {}) {
   function update(delta, timestamp) {
     if (disposed || mixer === null || !playing) return;
 
-    mixer.update(delta);
+    mixer.update(delta * playbackRate);
     if (timestamp - lastNotify >= NOTIFY_INTERVAL_MS) {
       lastNotify = timestamp;
       emit();
     }
+  }
+
+  function setSpeed(rate) {
+    if (disposed || mixer === null) return false;
+
+    const next = Number(rate);
+    if (!Number.isFinite(next) || next <= 0 || next === playbackRate) return false;
+    playbackRate = next;
+    lastNotify = -Infinity;
+    return true;
   }
 
   function setPlaying(enabled) {
@@ -163,6 +175,7 @@ export function createAnimationController(object, { onTick } = {}) {
     animations,
     setPlaying,
     setClip,
+    setSpeed,
     seek,
     update,
     snapshot,

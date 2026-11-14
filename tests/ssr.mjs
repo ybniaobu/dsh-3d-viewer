@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { AnimationBar } from '../src/ui/animation-bar.js';
+import { AnimationBar, SPEEDS } from '../src/ui/animation-bar.js';
 import { ViewerSurface } from '../src/ui/viewer-surface.js';
 import { CSS } from '../src/ui/styles.js';
 
@@ -108,6 +108,7 @@ const fakeView = {
   reset: () => {},
   setAnimationPlaying: () => {},
   setAnimationClip: () => {},
+  setAnimationSpeed: () => {},
   seekAnimation: () => {},
   subscribeAnimation: () => () => {},
   subscribeCamera: () => () => {},
@@ -142,9 +143,14 @@ assert.match(animationHtml, /aria-haspopup="listbox"/);
 assert.match(animationHtml, />Idle</);
 assert.doesNotMatch(animationHtml, />Walk</);
 assert.doesNotMatch(animationHtml, /Idle ·/);
+assert.match(animationHtml, /aria-label="animationSpeed"/);
+assert.match(animationHtml, /1×/);
+assert.deepEqual(SPEEDS, [0.5, 0.75, 1, 1.5, 2]);
 assert.match(CSS, /\.dsh3dv-anim-select\{[^}]*text-overflow:ellipsis/);
 assert.match(CSS, /\.dsh3dv-anim-menu\{[^}]*left:-12px[^}]*min-width:128px[^}]*max-height:248px[^}]*overflow-y:auto/);
 assert.match(CSS, /\.dsh3dv-anim-option\{[^}]*flex:none[^}]*height:24px/);
+assert.match(CSS, /\.dsh3dv-speed-menu\{[^}]*right:-6px[^}]*width:48px[^}]*min-width:48px[^}]*max-width:48px/);
+assert.match(CSS, /\.dsh3dv-speed-menu \.dsh3dv-anim-option\{[^}]*text-align:center/);
 const readyHtml = renderToStaticMarkup(React.createElement(ViewerSurface, {
   format: 'obj',
   glb: false,

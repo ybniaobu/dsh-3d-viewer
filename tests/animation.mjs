@@ -63,6 +63,14 @@ assert.equal(controller.setClip(3), false);
 assert.equal(controller.seek(Number.NaN), true);
 assert.equal(controller.snapshot().time, 0);
 
+assert.equal(controller.setPlaying(true), true);
+controller.seek(0);
+assert.equal(controller.setSpeed(2), true);
+controller.update(0.2, 3000);
+assert.equal(controller.snapshot().time, 0.4);
+assert.equal(controller.setSpeed(0), false);
+assert.equal(controller.setSpeed(Number.NaN), false);
+
 controller.dispose();
 AnimationMixer.prototype.clipAction = originalClipAction;
 assert.ok(ticks.length >= 4);

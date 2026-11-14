@@ -60,6 +60,7 @@ const CAMERA_VIEWS = Object.freeze({
  *   subscribeCamera: (listener: (quaternion: { x: number, y: number, z: number, w: number }) => void) => () => void,
  *   setAnimationPlaying: (enabled: boolean) => void,
  *   setAnimationClip: (index: number) => void,
+ *   setAnimationSpeed: (rate: number) => void,
  *   seekAnimation: (seconds: number) => void,
  *   setAutoRotate: (enabled: boolean) => boolean,
  *   setGrid: (visible: boolean) => boolean,
@@ -452,6 +453,10 @@ export function createSceneView(host, object, stats, options = {}) {
     loop.invalidate();
   }
 
+  function setAnimationSpeed(rate) {
+    animation.setSpeed(rate);
+  }
+
   function seekAnimation(seconds) {
     if (animation.seek(seconds)) loop.invalidate();
   }
@@ -576,6 +581,7 @@ export function createSceneView(host, object, stats, options = {}) {
     subscribeCamera,
     setAnimationPlaying,
     setAnimationClip,
+    setAnimationSpeed,
     seekAnimation,
     setAutoRotate,
     setGrid,
