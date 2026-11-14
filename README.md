@@ -98,7 +98,7 @@ Notes:
 | Scene | `src/scene/`: renderer, camera, materials, environment, grid, post-processing |
 | Loaders | `src/loaders/`: format dispatch, workspace reads, texture workers |
 | Vendored code | `src/vendor/`: modified FBX loader |
-| Build and tests | `build.mjs`, `tests/run.mjs`, `tests/*.mjs` |
+| Build and tests | `build.mjs`, `tests/run.mjs`, `tests/**/*.mjs` |
 
 `src/client.js` only registers previews; `src/runtime.js` owns Three.js, scene setup, and lazy format dispatch. The UI shell does not import Three.js directly; scene code and the texture WebGL preview load with the lazy runtime.
 
@@ -110,7 +110,7 @@ npm test
 npm run build
 ```
 
-CI uses Node.js 24. `npm test` runs each `tests/*.mjs` file in its own process.
+CI uses Node.js 24. `npm test` runs each `tests/**/*.mjs` file in its own process.
 
 `npm run build` writes the UI entry, lazy runtime, format/texture chunks, and the EXR/HDR worker to `dist/`. Commit the rebuilt `dist/` files when source changes.
 
