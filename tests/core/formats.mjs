@@ -8,7 +8,7 @@ import {
   normalizeFormat,
 } from '../../src/core/formats.js';
 
-assert.deepEqual(FORMAT_IDS, ['fbx', 'obj', 'gltf', 'stl', 'dae']);
+assert.deepEqual(FORMAT_IDS, ['fbx', 'obj', 'gltf', 'dae', 'stl']);
 assert.deepEqual(FORMAT_ENTRIES.map((entry) => entry.format), FORMAT_IDS);
 assert.equal(new Set(FORMAT_ENTRIES.map((entry) => entry.id)).size, 5, 'format ids must be unique');
 

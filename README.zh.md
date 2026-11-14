@@ -7,7 +7,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、STL、DAE 模型，以及 PNG、JPEG、TGA、EXR、HDR 纹理。可旋转，缩放，切换视角、材质与环境，并播放内嵌动画。
+在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、DAE、STL 模型，以及 PNG、JPEG、TGA、EXR、HDR 纹理。可旋转，缩放，切换视角、材质与环境，并播放内嵌动画。
 
 ![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.gif)
 
@@ -58,8 +58,8 @@
 | **FBX** | 网格、层级、材质、内嵌贴图、动画、节点数据 |
 | **OBJ** | 多边形、分组、法线、UV、顶点色、线/点、MTL、常用贴图 |
 | **glTF / GLB** | 动画、蒙皮、内嵌资源、外部 `.bin` 与贴图 |
-| **STL** | ASCII/二进制、中性 PBR 材质、二进制顶点色 |
 | **DAE** | COLLADA 网格、材质、外部贴图与动画 |
+| **STL** | ASCII/二进制、中性 PBR 材质、二进制顶点色 |
 
 说明：
 

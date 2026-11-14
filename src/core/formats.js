@@ -45,14 +45,6 @@ export const FORMATS = Object.freeze({
     glbBadgeKey: 'glbBadge',
     label: 'glTF / GLB',
   }),
-  stl: Object.freeze({
-    id: 'dsh-3d-viewer/stl',
-    format: 'stl',
-    extensions: Object.freeze(['stl']),
-    titleKey: 'stlRendererTitle',
-    badgeKey: 'stlBadge',
-    label: 'STL',
-  }),
   dae: Object.freeze({
     id: 'dsh-3d-viewer/dae',
     format: 'dae',
@@ -60,6 +52,14 @@ export const FORMATS = Object.freeze({
     titleKey: 'daeRendererTitle',
     badgeKey: 'daeBadge',
     label: 'DAE',
+  }),
+  stl: Object.freeze({
+    id: 'dsh-3d-viewer/stl',
+    format: 'stl',
+    extensions: Object.freeze(['stl']),
+    titleKey: 'stlRendererTitle',
+    badgeKey: 'stlBadge',
+    label: 'STL',
   }),
 });
 

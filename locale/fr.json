@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Visionneuse 3D",
-    "description": "Affichez des modèles 3D et des textures de l’espace de travail de la session dans la barre latérale droite de DSH. Formats pris en charge : FBX, OBJ, glTF, GLB, STL et DAE, ainsi que les textures PNG, JPEG, TGA, EXR et HDR."
+    "description": "Affichez des modèles 3D et des textures de l’espace de travail de la session dans la barre latérale droite de DSH. Formats pris en charge : FBX, OBJ, glTF, GLB, DAE et STL, ainsi que les textures PNG, JPEG, TGA, EXR et HDR."
   }
 }

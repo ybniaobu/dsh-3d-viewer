@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "3D 查看器",
-    "description": "在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、STL、DAE 模型，以及 PNG、JPEG、TGA、EXR、HDR 纹理。"
+    "description": "在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、DAE、STL 模型，以及 PNG、JPEG、TGA、EXR、HDR 纹理。"
   }
 }
