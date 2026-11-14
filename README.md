@@ -7,7 +7,7 @@ English | [中文](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.zh
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, and STL models, plus TGA, EXR, and HDR textures. Orbit, zoom, switch camera views, materials and environments, and play embedded animations.
+Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, DAE, and STL models, plus PNG, JPEG, TGA, EXR, and HDR textures. Orbit, zoom, switch camera views, materials and environments, and play embedded animations.
 
 ![3D Viewer preview](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.gif)
 
@@ -19,7 +19,7 @@ The plugin is distributed as the npm package `dsh-3d-viewer`. The Three.js runti
 
 1. Open DSH Desktop and choose **Plugins** in the sidebar.
 2. Click **Add plugin** → **Install a third-party plugin**.
-3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.2.2` to pin a version).
+3. Enter `dsh-3d-viewer` (or `dsh-3d-viewer@0.3.0` to pin a version).
 4. Set **Registry** to the official npm registry (npmmirror also works in mainland China).
 5. Click **Install**, then confirm **3D Viewer** is **On** under **Installed plugins**.
 
@@ -35,7 +35,7 @@ Plugins run inside the DSH process; install only trusted sources.
 
 ### Requirements
 
-- DSH Desktop 0.2.2-rc.1 or newer.
+- DSH Desktop 0.2.2-rc.3 or newer.
 - WebGL 2.
 - The model or texture must be in the session workspace.
 
@@ -43,7 +43,7 @@ Plugins run inside the DSH process; install only trusted sources.
 
 Open the right sidebar, choose **Files** (`Mod+P`), and click a supported file.
 
-**Model previews:** drag to orbit, scroll to zoom, and right-drag to pan. The toolbar resets the view, starts auto-rotation, and toggles the grid and wireframe. Click or drag the orientation axes to change the camera view. Material and environment pickers are in the top-right controls.
+**Model previews:** drag to orbit, scroll to zoom, and right-drag to pan. The toolbar resets the view, starts auto-rotation, and toggles the grid and wireframe. Click or drag the orientation axes to change the camera view. Material and environment pickers are in the top-right controls. When the model has animation clips, the animation bar appears above the bottom hint: use play/pause, pick a clip by name, drag the progress slider to seek, and choose a playback speed from `0.5×` to `2×`. Switching clips resets to that clip's first frame while preserving the current play/pause state.
 
 **Texture previews:** scroll to zoom, drag to pan when zoomed, and use **Fit** or double-click to reset. **Flip Y** handles bottom-up sources. The badge shows dimensions, bit depth, and zoom.
 
@@ -58,6 +58,7 @@ Large files and the first environment switch may take a few seconds. If no previ
 | **FBX** | Meshes, hierarchy, materials, embedded textures, animations, node data |
 | **OBJ** | Polygons, groups, normals, UVs, vertex colors, lines/points, MTL, common textures |
 | **glTF / GLB** | Animations, skinning, embedded resources, external `.bin` files and textures |
+| **DAE** | COLLADA meshes, materials, external textures, and animations |
 | **STL** | ASCII and binary, neutral PBR material, binary vertex colors |
 
 Notes:
@@ -76,6 +77,8 @@ Notes:
 
 | Format | Decoded data | Preview |
 | --- | --- | --- |
+| **PNG** | 8-bit RGBA | Direct pixels, alpha preserved |
+| **JPG / JPEG** | 8-bit RGBA | Direct pixels, alpha preserved |
 | **TGA** | 8-bit RGBA | Direct pixels, alpha preserved |
 | **EXR** | 16-bit half or 32-bit float, 1–4 channels | Tone-mapped to SDR |
 | **HDR** | Radiance RGBE, 16-bit half by default | Tone-mapped to SDR |
@@ -89,15 +92,17 @@ Notes:
 | Area | Main files |
 | --- | --- |
 | Host and package | `index.js`, `cordis.patch.yml`, `package.json` |
-| Client registration | `src/client.js`, `src/formats.js`, `src/texture-formats.js` |
+| Core | `src/core/`: byte helpers, formats, model statistics |
+| Client registration | `src/client.js`, `src/core/formats.js`, `src/core/texture-formats.js` |
 | Lazy runtime | `src/runtime.js`, `src/ui/viewer-runtime.js`, `src/loaders/address.js` |
-| UI | `src/ui/`: viewer, toolbar, texture preview, animation, preferences |
+| Lazy UI chunks | `client.ui.styles.js`, `client.ui.texture.js`, `client.locales.*.js` |
+| UI | `src/ui/`: chrome, controls, preferences; `ui/model/` and `ui/texture/` for the two viewers |
 | Scene | `src/scene/`: renderer, camera, materials, environment, grid, post-processing |
-| Loaders | `src/loaders/`: format dispatch, workspace reads, texture workers |
+| Loaders | `src/loaders/`: dispatch, workspace reads, texture workers, `formats/` loaders |
 | Vendored code | `src/vendor/`: modified FBX loader |
-| Build and tests | `build.mjs`, `tests/run.mjs`, `tests/*.mjs` |
+| Build and tests | `build.mjs`, `tests/run.mjs`, `tests/**/*.mjs` |
 
-`src/client.js` only registers previews; `src/runtime.js` owns Three.js, scene setup, and lazy format dispatch. The UI shell does not import Three.js directly; scene code and the texture WebGL preview load with the lazy runtime.
+`src/client.js` only registers previews; `src/runtime.js` owns Three.js, scene setup, and lazy format dispatch. The UI shell does not import Three.js directly; scene code and the texture WebGL preview load with the lazy runtime. Styles, non-baseline locale dictionaries, and the texture viewer are also package-local UI chunks; English and Chinese dictionaries stay in the entry bundle as the DSH fallbacks.
 
 ## Development
 
@@ -107,9 +112,9 @@ npm test
 npm run build
 ```
 
-CI uses Node.js 24. `npm test` runs each `tests/*.mjs` file in its own process.
+CI uses Node.js 24. `npm test` runs each `tests/**/*.mjs` file in its own process.
 
-`npm run build` writes the UI entry, lazy runtime, format/texture chunks, and the EXR/HDR worker to `dist/`. Commit the rebuilt `dist/` files when source changes.
+`npm run build` writes the UI entry, lazy runtime, format/texture chunks, UI style/locale/texture chunks, and the EXR/HDR worker to `dist/`. Commit the rebuilt `dist/` files when source changes.
 
 ## License
 

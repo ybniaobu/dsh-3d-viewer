@@ -44,7 +44,7 @@ export function updateClipPlanes(camera, distance, maxDimension) {
  *
  * @param {import('three').PerspectiveCamera} camera Active camera.
  * @param {import('three').OrbitControls} controls Orbit controls.
- * @param {ReturnType<import('../model.js').collectModelStats>} stats Model bounds.
+ * @param {ReturnType<import('../core/model.js').collectModelStats>} stats Model bounds.
  * @param {number} maxDimension Largest model dimension.
  * @returns {number} Camera-to-target distance.
  */

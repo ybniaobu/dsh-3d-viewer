@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Visualizador 3D",
+    "description": "Visualize modelos 3D e texturas do workspace da sessão na barra lateral direita do DSH. Formatos compatíveis: FBX, OBJ, glTF, GLB, DAE e STL, além de texturas PNG, JPEG, TGA, EXR e HDR."
+  }
+}

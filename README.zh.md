@@ -7,7 +7,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、STL 模型，以及 TGA、EXR、HDR 纹理。可旋转，缩放，切换视角、材质与环境，并播放内嵌动画。
+在 DSH 右侧边栏预览会话工作区中的 3D 模型和纹理。支持 FBX、OBJ、glTF、GLB、DAE、STL 模型，以及 PNG、JPEG、TGA、EXR、HDR 纹理。可旋转，缩放，切换视角、材质与环境，并播放内嵌动画。
 
 ![3D Viewer 预览](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.gif)
 
@@ -19,7 +19,7 @@
 
 1. 打开 DSH Desktop，点击侧边栏的 **Plugins（插件）**。
 2. 点击 **Add plugin（添加插件）** → **Install a third-party plugin（安装第三方插件）**。
-3. 输入 `dsh-3d-viewer`，需要固定版本时写 `dsh-3d-viewer@0.2.2`。
+3. 输入 `dsh-3d-viewer`，需要固定版本时写 `dsh-3d-viewer@0.3.0`。
 4. **Registry** 选择 npm 官方源（国内也可用 npmmirror）。
 5. 点击 **Install**，在 **Installed plugins（已安装插件）** 中确认 **3D Viewer** 为 **On**。
 
@@ -35,7 +35,7 @@
 
 ### 运行要求
 
-- DSH Desktop 0.2.2-rc.1 或更高版本。
+- DSH Desktop 0.2.2-rc.3 或更高版本。
 - 支持 WebGL 2。
 - 模型或纹理位于会话工作区。
 
@@ -43,7 +43,7 @@
 
 打开右侧边栏，进入 **Files**（`Mod+P`），点击支持的文件。
 
-**模型预览**：拖拽旋转，滚轮缩放，右键拖拽平移。工具栏可复位视角、自动旋转，以及切换网格和线框；点击或拖动坐标轴切换视角；材质和环境选择器位于右上角。
+**模型预览**：拖拽旋转，滚轮缩放，右键拖拽平移。工具栏可复位视角、自动旋转，以及切换网格和线框；点击或拖动坐标轴切换视角；材质和环境选择器位于右上角。模型包含动画片段时，底部提示上方会显示动画栏：可播放/暂停、按名称选择片段、拖动进度条跳转，并选择 `0.5×` 到 `2×` 的播放速度。切换片段会回到该片段第一帧，同时保持当前播放/暂停状态。
 
 **纹理预览**：滚轮缩放，放大后拖拽平移；使用 **适应窗口** 或双击复位；**垂直翻转** 用于处理上下颠倒的源图。元信息显示尺寸、位深和缩放比例。
 
@@ -58,6 +58,7 @@
 | **FBX** | 网格、层级、材质、内嵌贴图、动画、节点数据 |
 | **OBJ** | 多边形、分组、法线、UV、顶点色、线/点、MTL、常用贴图 |
 | **glTF / GLB** | 动画、蒙皮、内嵌资源、外部 `.bin` 与贴图 |
+| **DAE** | COLLADA 网格、材质、外部贴图与动画 |
 | **STL** | ASCII/二进制、中性 PBR 材质、二进制顶点色 |
 
 说明：
@@ -76,6 +77,8 @@
 
 | 格式 | 解码数据 | 预览 |
 | --- | --- | --- |
+| **PNG** | 8-bit RGBA | 直接显示，保留 alpha |
+| **JPG / JPEG** | 8-bit RGBA | 直接显示，保留 alpha |
 | **TGA** | 8-bit RGBA | 直接显示，保留 alpha |
 | **EXR** | 16-bit half 或 32-bit float，1–4 通道 | 色调映射到 SDR |
 | **HDR** | Radiance RGBE，默认 16-bit half | 色调映射到 SDR |
@@ -89,15 +92,17 @@
 | 区域 | 主要文件 |
 | --- | --- |
 | 宿主与打包 | `index.js`、`cordis.patch.yml`、`package.json` |
-| 客户端注册 | `src/client.js`、`src/formats.js`、`src/texture-formats.js` |
+| 核心 | `src/core/`：字节工具、格式注册、模型统计 |
+| 客户端注册 | `src/client.js`、`src/core/formats.js`、`src/core/texture-formats.js` |
 | 懒加载运行时 | `src/runtime.js`、`src/ui/viewer-runtime.js`、`src/loaders/address.js` |
-| UI | `src/ui/`：查看器、工具栏、纹理预览、动画、偏好 |
+| 懒加载 UI chunk | `client.ui.styles.js`、`client.ui.texture.js`、`client.locales.*.js` |
+| UI | `src/ui/`：框架、控件、偏好；`ui/model/` 与 `ui/texture/` 分别为两个查看器 |
 | 场景 | `src/scene/`：渲染器、相机、材质、环境、网格、后处理 |
-| 加载器 | `src/loaders/`：格式分派、工作区读取、纹理 Worker |
+| 加载器 | `src/loaders/`：格式分派、工作区读取、纹理 Worker，`formats/` 为格式加载器 |
 | 第三方代码 | `src/vendor/`：修改过的 FBX Loader |
-| 构建与测试 | `build.mjs`、`tests/run.mjs`、`tests/*.mjs` |
+| 构建与测试 | `build.mjs`、`tests/run.mjs`、`tests/**/*.mjs` |
 
-`src/client.js` 只负责注册预览；`src/runtime.js` 持有 Three.js、场景初始化和格式懒加载分派。UI 入口不直接导入 Three.js；场景代码和纹理 WebGL 预览随懒加载运行时加载。
+`src/client.js` 只负责注册预览；`src/runtime.js` 持有 Three.js、场景初始化和格式懒加载分派。UI 入口不直接导入 Three.js；场景代码和纹理 WebGL 预览随懒加载运行时加载。样式、非中英文语言字典和纹理查看器同样是包内 UI chunk；中英文字典保留在入口中，作为 DSH 的回退语言。
 
 ## 开发
 
@@ -107,9 +112,9 @@ npm test
 npm run build
 ```
 
-CI 使用 Node.js 24。`npm test` 会让每个 `tests/*.mjs` 在独立进程中运行。
+CI 使用 Node.js 24。`npm test` 会让每个 `tests/**/*.mjs` 在独立进程中运行。
 
-`npm run build` 会写出 UI 入口、懒加载运行时、格式/纹理 chunk 和 EXR/HDR Worker 到 `dist/`。修改源码后需提交重建的 `dist/` 文件。
+`npm run build` 会写出 UI 入口、懒加载运行时、格式/纹理 chunk、UI 样式/语言/纹理 chunk 和 EXR/HDR Worker 到 `dist/`。修改源码后需提交重建的 `dist/` 文件。
 
 ## 许可证
 

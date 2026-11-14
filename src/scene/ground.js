@@ -179,7 +179,7 @@ function createGridTexture(anisotropy) {
  *
  * @param {{
  *   scene: import('three').Scene,
- *   stats: ReturnType<import('../model.js').collectModelStats>,
+ *   stats: ReturnType<import('../core/model.js').collectModelStats>,
  *   maxDimension: number,
  *   maxAnisotropy?: number,
  * }} options Target scene, model bounds, and renderer anisotropy support.

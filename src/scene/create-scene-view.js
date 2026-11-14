@@ -1,6 +1,6 @@
 import { PerspectiveCamera, Scene, Spherical, Vector3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { disposeObject } from '../model.js';
+import { disposeObject } from '../core/model.js';
 import { createAnimationController } from './animation.js';
 import {
   enableReversedDepth,
@@ -50,7 +50,7 @@ const CAMERA_VIEWS = Object.freeze({
  *
  * @param {HTMLElement} host Element that will own the canvas.
  * @param {import('three').Object3D} object Parsed FBX graph.
- * @param {ReturnType<import('../model.js').collectModelStats>} stats Model bounds and counts.
+ * @param {ReturnType<import('../core/model.js').collectModelStats>} stats Model bounds and counts.
  * @param {{ ariaLabel?: string, environment?: string }} [options] Localized accessibility text and initial IBL environment.
  * Animation listeners receive a reused state object; read it synchronously.
  * Camera listeners likewise receive a reused quaternion object.
@@ -60,6 +60,7 @@ const CAMERA_VIEWS = Object.freeze({
  *   subscribeCamera: (listener: (quaternion: { x: number, y: number, z: number, w: number }) => void) => () => void,
  *   setAnimationPlaying: (enabled: boolean) => void,
  *   setAnimationClip: (index: number) => void,
+ *   setAnimationSpeed: (rate: number) => void,
  *   seekAnimation: (seconds: number) => void,
  *   setAutoRotate: (enabled: boolean) => boolean,
  *   setGrid: (visible: boolean) => boolean,
@@ -190,6 +191,7 @@ export function createSceneView(host, object, stats, options = {}) {
   const dragSpherical = new Spherical();
   let disposed = false;
   let onScreen = true;
+  let cameraFrame = 0;
   let lastWidth = 0;
   let lastHeight = 0;
   let lastPixelRatio = 0;
@@ -211,7 +213,7 @@ export function createSceneView(host, object, stats, options = {}) {
     autoPosition.setFromSphericalCoords(autoRadius, autoPhi, theta).add(controls.target);
     camera.position.copy(autoPosition);
     camera.lookAt(controls.target);
-    emitCamera();
+    scheduleCamera();
   }
 
   function emitCamera() {
@@ -227,6 +229,14 @@ export function createSceneView(host, object, stats, options = {}) {
         console.error('[dsh-3d-viewer] Camera listener failed.', error);
       }
     }
+  }
+
+  function scheduleCamera() {
+    if (disposed || cameraFrame !== 0) return;
+    cameraFrame = requestAnimationFrame(() => {
+      cameraFrame = 0;
+      if (!disposed) emitCamera();
+    });
   }
 
   loop = createRenderLoop((delta, timestamp) => {
@@ -306,7 +316,7 @@ export function createSceneView(host, object, stats, options = {}) {
     // Auto-rotate no longer goes through OrbitControls, so every change event
     // here comes from a user interaction (orbit, zoom, or pan).
     syncView();
-    emitCamera();
+    scheduleCamera();
     loop.invalidate();
   }
 
@@ -418,7 +428,7 @@ export function createSceneView(host, object, stats, options = {}) {
     camera.lookAt(controls.target);
     camera.updateMatrixWorld();
     if (autoRotate) beginAutoRotate();
-    emitCamera();
+    scheduleCamera();
     syncView();
     loop.invalidate();
   }
@@ -450,6 +460,10 @@ export function createSceneView(host, object, stats, options = {}) {
     if (!animation.setClip(index)) return;
     updateLoop();
     loop.invalidate();
+  }
+
+  function setAnimationSpeed(rate) {
+    animation.setSpeed(rate);
   }
 
   function seekAnimation(seconds) {
@@ -496,6 +510,7 @@ export function createSceneView(host, object, stats, options = {}) {
   function paint() {
     if (disposed) return;
     animation.update(0, performance.now());
+    animation.prewarm();
     post.render(0);
   }
 
@@ -512,6 +527,10 @@ export function createSceneView(host, object, stats, options = {}) {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    if (cameraFrame !== 0) {
+      cancelAnimationFrame(cameraFrame);
+      cameraFrame = 0;
+    }
     resolveEnvironmentReady();
 
     loop.dispose();
@@ -576,6 +595,7 @@ export function createSceneView(host, object, stats, options = {}) {
     subscribeCamera,
     setAnimationPlaying,
     setAnimationClip,
+    setAnimationSpeed,
     seekAnimation,
     setAutoRotate,
     setGrid,

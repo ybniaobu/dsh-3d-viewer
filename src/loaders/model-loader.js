@@ -1,4 +1,4 @@
-import { stripEmbeddedSceneNodes } from '../model.js';
+import { stripEmbeddedSceneNodes } from '../core/model.js';
 import { asyncChunk } from './chunk-require.js';
 
 /**
@@ -8,11 +8,12 @@ import { asyncChunk } from './chunk-require.js';
  * system fetches one only when that format is first opened.
  */
 const CHUNKS = Object.freeze({
-  fbx: { file: './client.fbx.js', loader: 'loadFbxModel' },
-  obj: { file: './client.obj.js', loader: 'loadObjModel' },
-  gltf: { file: './client.gltf.js', loader: 'loadGltfModel' },
-  glb: { file: './client.gltf.js', loader: 'loadGltfModel' },
-  stl: { file: './client.stl.js', loader: 'loadStlModel' },
+  fbx: { file: './client.formats.fbx.js', loader: 'loadFbxModel' },
+  obj: { file: './client.formats.obj.js', loader: 'loadObjModel' },
+  gltf: { file: './client.formats.gltf.js', loader: 'loadGltfModel' },
+  glb: { file: './client.formats.gltf.js', loader: 'loadGltfModel' },
+  stl: { file: './client.formats.stl.js', loader: 'loadStlModel' },
+  dae: { file: './client.formats.dae.js', loader: 'loadDaeModel' },
 });
 
 /** One in-flight chunk promise per file, so concurrent opens share it. */
@@ -55,7 +56,7 @@ export function preloadModelFormat(format) {
  * Load one registered model format through its package-local chunk.
  *
  * @param {Uint8Array | ArrayBuffer | string} data Complete file bytes.
- * @param {'fbx' | 'gltf' | 'glb' | 'obj' | 'stl'} format Document format.
+ * @param {'fbx' | 'gltf' | 'glb' | 'obj' | 'stl' | 'dae'} format Document format.
  * @param {{
  *   readWorkspaceFile?: Function,
  *   resourceAddress?: string,

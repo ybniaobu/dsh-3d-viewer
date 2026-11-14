@@ -47,10 +47,11 @@ npm publish
 ## 4. Verify
 
 - CI is green, including the `dist/client.js` and chunk drift checks.
-- The supported client is DSH Desktop 0.2.2-rc.1 or newer; verify the install
+- The supported client is DSH Desktop 0.2.2-rc.3 or newer; verify the install
   there.
 - `npm pack --dry-run --json` lists `dist/client.js`, `dist/client.*.js`,
   `index.js`, `cordis.patch.yml`, `locale/*.json`, the docs, `icon.svg`, and
   `assets/hdri/*`.
 - Install the tarball or the npm package in a clean profile and open one FBX,
-  OBJ, glTF, GLB, and STL file; switch all four environments and reload the page.
+  OBJ, glTF, GLB, DAE, and STL file plus PNG, JPEG, TGA, EXR, and HDR textures;
+  switch all four environments and reload the page.

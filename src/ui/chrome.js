@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { badgeKeyFor } from '../formats.js';
+import { badgeKeyFor } from '../core/formats.js';
 import {
   CubeIcon,
   FrameIcon,
@@ -89,6 +89,7 @@ export function AxisGizmo({ view, t }) {
     const center = 44;
     const radius = 24;
     const labelGap = 10;
+    const round = (value) => Math.round(value * 100) / 100;
 
     const updateAxis = (q, ax, ay, az, lineRef, posDotRef, posLabelRef, negDotRef) => {
       const qx = -q.x;
@@ -102,35 +103,78 @@ export function AxisGizmo({ view, t }) {
       const vy = ay + qw * ty + (qz * tx - qx * tz);
       const sx = vx;
       const sy = -vy;
-      const posX = center + sx * radius;
-      const posY = center + sy * radius;
-      const negX = center - sx * radius;
-      const negY = center - sy * radius;
+      const posX = round(center + sx * radius);
+      const posY = round(center + sy * radius);
+      const negX = round(center - sx * radius);
+      const negY = round(center - sy * radius);
       const length = Math.hypot(sx, sy);
 
-      lineRef.current?.setAttribute('x1', negX.toFixed(2));
-      lineRef.current?.setAttribute('y1', negY.toFixed(2));
-      lineRef.current?.setAttribute('x2', posX.toFixed(2));
-      lineRef.current?.setAttribute('y2', posY.toFixed(2));
-      posDotRef.current?.setAttribute('cx', posX.toFixed(2));
-      posDotRef.current?.setAttribute('cy', posY.toFixed(2));
-      negDotRef.current?.setAttribute('cx', negX.toFixed(2));
-      negDotRef.current?.setAttribute('cy', negY.toFixed(2));
+      lineRef.current?.setAttribute('x1', negX);
+      lineRef.current?.setAttribute('y1', negY);
+      lineRef.current?.setAttribute('x2', posX);
+      lineRef.current?.setAttribute('y2', posY);
+      posDotRef.current?.setAttribute('cx', posX);
+      posDotRef.current?.setAttribute('cy', posY);
+      negDotRef.current?.setAttribute('cx', negX);
+      negDotRef.current?.setAttribute('cy', negY);
 
       if (length > 0.08) {
-        posLabelRef.current?.setAttribute('x', (posX + (sx / length) * labelGap).toFixed(2));
-        posLabelRef.current?.setAttribute('y', (posY + (sy / length) * labelGap).toFixed(2));
+        posLabelRef.current?.setAttribute('x', round(posX + (sx / length) * labelGap));
+        posLabelRef.current?.setAttribute('y', round(posY + (sy / length) * labelGap));
         posLabelRef.current?.setAttribute('opacity', '1');
       } else {
         posLabelRef.current?.setAttribute('opacity', '0');
       }
     };
 
-    return view.subscribeCamera((q) => {
-      updateAxis(q, 1, 0, 0, xLineRef, xPosDotRef, xPosLabelRef, xNegDotRef);
-      updateAxis(q, 0, 1, 0, yLineRef, yPosDotRef, yPosLabelRef, yNegDotRef);
-      updateAxis(q, 0, 0, 1, zLineRef, zPosDotRef, zPosLabelRef, zNegDotRef);
+    // OrbitControls can emit several changes per display frame, and
+    // auto-rotate emits once per frame. Keep the latest quaternion and update
+    // the SVG at most once per ~32ms so DOM attribute conversion and temporary
+    // strings do not scale with input/render frequency.
+    const latest = { x: 0, y: 0, z: 0, w: 1 };
+    const last = { x: Number.NaN, y: Number.NaN, z: Number.NaN, w: Number.NaN };
+    let frame = 0;
+    let lastUpdate = 0;
+    const interval = 32;
+
+    const render = () => {
+      frame = 0;
+      const now = performance.now();
+      const wait = interval - (now - lastUpdate);
+      if (wait > 0) {
+        frame = requestAnimationFrame(render);
+        return;
+      }
+      const changed = Math.abs(latest.x - last.x)
+        + Math.abs(latest.y - last.y)
+        + Math.abs(latest.z - last.z)
+        + Math.abs(latest.w - last.w);
+      if (changed < 1e-5) return;
+      last.x = latest.x;
+      last.y = latest.y;
+      last.z = latest.z;
+      last.w = latest.w;
+      lastUpdate = now;
+      updateAxis(latest, 1, 0, 0, xLineRef, xPosDotRef, xPosLabelRef, xNegDotRef);
+      updateAxis(latest, 0, 1, 0, yLineRef, yPosDotRef, yPosLabelRef, yNegDotRef);
+      updateAxis(latest, 0, 0, 1, zLineRef, zPosDotRef, zPosLabelRef, zNegDotRef);
+    };
+
+    const unsubscribe = view.subscribeCamera((q) => {
+      latest.x = q.x;
+      latest.y = q.y;
+      latest.z = q.z;
+      latest.w = q.w;
+      if (frame === 0) frame = requestAnimationFrame(render);
     });
+
+    return () => {
+      unsubscribe?.();
+      if (frame !== 0) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      }
+    };
   }, [view]);
 
   const selectView = (name) => {

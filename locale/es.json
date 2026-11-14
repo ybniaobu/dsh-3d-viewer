@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Visor 3D",
+    "description": "Previsualiza modelos 3D y texturas del espacio de trabajo de la sesión en la barra lateral derecha de DSH. Formatos compatibles: FBX, OBJ, glTF, GLB, DAE y STL, además de texturas PNG, JPEG, TGA, EXR y HDR."
+  }
+}

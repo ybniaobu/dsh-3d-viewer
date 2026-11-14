@@ -9,7 +9,7 @@ import {
 } from 'three';
 import { asyncChunk } from './chunk-require.js';
 
-const WORKER_CHUNK = './client.tex-worker.js';
+const WORKER_CHUNK = './client.textures.worker.js';
 const MAX_WORKER_COUNT = 2;
 const SHARED_STATE_KEY = Symbol.for('dsh3d.texture-worker-pool.v1');
 
@@ -342,6 +342,10 @@ export async function decodeTextureInWorker(format, data, fallback, options = {}
       state.pendingRequests.set(id, request);
       entry.pending.add(id);
       signal?.addEventListener('abort', request.onAbort, { once: true });
+      if (signal?.aborted === true) {
+        request.onAbort();
+        return;
+      }
       try {
         entry.worker.postMessage({ id, format, bytes: buffer }, [buffer]);
         transferred = transfer
