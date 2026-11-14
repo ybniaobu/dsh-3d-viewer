@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { AnimationBar } from '../src/ui/animation-bar.js';
 import { ViewerSurface } from '../src/ui/viewer-surface.js';
 import { CSS } from '../src/ui/styles.js';
 
@@ -128,6 +129,22 @@ const labels = {
   statsTriangles: 'Triangles',
   objBadge: 'OBJ',
 };
+const animationHtml = renderToStaticMarkup(React.createElement(AnimationBar, {
+  view: fakeView,
+  clips: [
+    { name: 'Idle', duration: 2.5 },
+    { name: 'Walk', duration: 1 },
+  ],
+  t: (key) => labels[key] ?? key,
+}));
+assert.match(animationHtml, /aria-label="animationClip"/);
+assert.match(animationHtml, /aria-haspopup="listbox"/);
+assert.match(animationHtml, />Idle</);
+assert.doesNotMatch(animationHtml, />Walk</);
+assert.doesNotMatch(animationHtml, /Idle ·/);
+assert.match(CSS, /\.dsh3dv-anim-select\{[^}]*text-overflow:ellipsis/);
+assert.match(CSS, /\.dsh3dv-anim-menu\{[^}]*left:-12px[^}]*min-width:128px[^}]*max-height:248px[^}]*overflow-y:auto/);
+assert.match(CSS, /\.dsh3dv-anim-option\{[^}]*flex:none[^}]*height:24px/);
 const readyHtml = renderToStaticMarkup(React.createElement(ViewerSurface, {
   format: 'obj',
   glb: false,

@@ -54,6 +54,10 @@ assert.equal(controller.setPlaying(false), true);
 assert.equal(controller.isPlaying(), false);
 controller.update(1, 2000);
 assert.equal(controller.snapshot().time, 0, 'paused mixer should not advance');
+assert.equal(controller.setClip(1), true);
+assert.deepEqual(controller.snapshot(), { time: 0, duration: 2, index: 1, playing: false });
+assert.equal(controller.setClip(0), true);
+assert.equal(controller.snapshot().playing, false, 'clip switching must preserve the paused state');
 
 assert.equal(controller.setClip(3), false);
 assert.equal(controller.seek(Number.NaN), true);

@@ -24,17 +24,51 @@ const h = React.createElement;
 export function AnimationBar({ view, clips, t }) {
   const [playing, setPlaying] = React.useState(true);
   const [index, setIndex] = React.useState(0);
+  const [open, setOpen] = React.useState(false);
   const progressRef = React.useRef(null);
   const timeRef = React.useRef(null);
+  const pickerRef = React.useRef(null);
+  const buttonRef = React.useRef(null);
+  const optionRefs = React.useRef([]);
   const lastSecondsRef = React.useRef(0);
 
-  const currentClip = clips[Math.min(index, clips.length - 1)];
+  const clipName = (clip, clipIndex) => clip.name || t('animationFallback', { n: clipIndex + 1 });
+  const activeIndex = clips.length === 0 ? 0 : Math.min(index, clips.length - 1);
+  const currentClip = clips[activeIndex];
   const animationLabel = currentClip !== undefined && currentClip !== null
-    ? (currentClip.name || t('animationFallback', { n: index + 1 }))
+    ? clipName(currentClip, activeIndex)
     : '';
   const animationMax = Number.isFinite(currentClip?.duration)
     ? Math.max(Number(currentClip.duration), 0)
     : 0;
+
+  React.useEffect(() => {
+    if (index >= clips.length && clips.length > 0) setIndex(0);
+  }, [clips.length, index]);
+
+  React.useEffect(() => {
+    if (!open) return undefined;
+    optionRefs.current[activeIndex]?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeIndex, open]);
+
+  React.useEffect(() => {
+    if (!open) return undefined;
+
+    const onPointerDown = (event) => {
+      if (pickerRef.current?.contains(event.target) !== true) setOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      buttonRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   const updateDisplay = (seconds) => {
     const next = Math.min(Math.max(Number(seconds) || 0, 0), animationMax);
@@ -50,16 +84,62 @@ export function AnimationBar({ view, clips, t }) {
   }, [view, playing]);
 
   React.useEffect(() => {
-    view.setAnimationClip(index);
+    view.setAnimationClip(activeIndex);
     updateDisplay(0);
-  }, [view, index]);
+  }, [view, activeIndex]);
 
   React.useEffect(() => view.subscribeAnimation((state) => {
     updateDisplay(state.time);
-  }), [view, index, animationMax]);
+  }), [view, activeIndex, animationMax]);
 
   const initialSeconds = lastSecondsRef.current;
   const timeLabel = `${formatSeconds(initialSeconds)}s / ${formatSeconds(animationMax)}s`;
+
+  let clipControl;
+  if (clips.length > 1) {
+    clipControl = h('div', { className: 'dsh3dv-anim-picker', ref: pickerRef },
+      h('button', {
+        type: 'button',
+        className: 'dsh3dv-anim-select',
+        ref: buttonRef,
+        title: animationLabel,
+        'aria-label': t('animationClip'),
+        'aria-haspopup': 'listbox',
+        'aria-expanded': open,
+        onClick: () => setOpen((value) => !value),
+        onKeyDown: (event) => {
+          if (event.key !== 'ArrowDown') return;
+          event.preventDefault();
+          setOpen(true);
+        },
+      }, animationLabel),
+      open
+        ? h('div', {
+          className: 'dsh3dv-anim-menu',
+          role: 'listbox',
+          'aria-label': t('animationClip'),
+        }, clips.map((clip, clipIndex) => h('button', {
+          key: clipIndex,
+          ref: (node) => {
+            optionRefs.current[clipIndex] = node;
+          },
+          type: 'button',
+          role: 'option',
+          'aria-selected': clipIndex === activeIndex,
+          className: clipIndex === activeIndex
+            ? 'dsh3dv-anim-option dsh3dv-anim-option--active'
+            : 'dsh3dv-anim-option',
+          onClick: () => {
+            updateDisplay(0);
+            setIndex(clipIndex);
+            setOpen(false);
+            buttonRef.current?.focus();
+          },
+        }, clipName(clip, clipIndex))))
+        : null);
+  } else {
+    clipControl = h('span', { className: 'dsh3dv-anim-name', title: animationLabel }, animationLabel);
+  }
 
   return h('div', {
     className: 'dsh3dv-anim',
@@ -75,20 +155,7 @@ export function AnimationBar({ view, clips, t }) {
     'aria-pressed': playing,
     onClick: () => setPlaying((value) => !value),
   }, playing ? h(PauseIcon) : h(PlayIcon)),
-  clips.length > 1
-    ? h('select', {
-      className: 'dsh3dv-anim-select',
-      value: index,
-      'aria-label': t('animation'),
-      onChange: (event) => {
-        updateDisplay(0);
-        setIndex(Number(event.currentTarget.value));
-      },
-    }, clips.map((clip, clipIndex) => h('option', {
-      key: clipIndex,
-      value: clipIndex,
-    }, clip.name || t('animationFallback', { n: clipIndex + 1 }))))
-    : h('span', { className: 'dsh3dv-anim-name', title: animationLabel }, animationLabel),
+  clipControl,
   h('input', {
     type: 'range',
     className: 'dsh3dv-progress',
