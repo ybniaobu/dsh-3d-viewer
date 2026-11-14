@@ -48,8 +48,8 @@ const moduleExports = entry.factory((name) => {
   throw new Error(`unexpected runtime import: ${name}`);
 });
 moduleExports.apply(ctx);
-assert.equal(components.length, 9);
-assert.equal(definitions.length, 9);
+assert.equal(components.length, 10);
+assert.equal(definitions.length, 10);
 assert.ok(definitions.every((definition) => definition.loading === 'renderer'));
 const component = components.find(({ key }) => key === 'dsh-3d-viewer/obj')?.body;
 assert.equal(typeof component, 'function');

@@ -13,6 +13,7 @@ const CHUNKS = Object.freeze({
   gltf: { file: './client.gltf.js', loader: 'loadGltfModel' },
   glb: { file: './client.gltf.js', loader: 'loadGltfModel' },
   stl: { file: './client.stl.js', loader: 'loadStlModel' },
+  dae: { file: './client.dae.js', loader: 'loadDaeModel' },
 });
 
 /** One in-flight chunk promise per file, so concurrent opens share it. */
@@ -55,7 +56,7 @@ export function preloadModelFormat(format) {
  * Load one registered model format through its package-local chunk.
  *
  * @param {Uint8Array | ArrayBuffer | string} data Complete file bytes.
- * @param {'fbx' | 'gltf' | 'glb' | 'obj' | 'stl'} format Document format.
+ * @param {'fbx' | 'gltf' | 'glb' | 'obj' | 'stl' | 'dae'} format Document format.
  * @param {{
  *   readWorkspaceFile?: Function,
  *   resourceAddress?: string,

@@ -84,7 +84,7 @@ function applyViewSettings(view, settings) {
  * `ViewerSurface`, which can be server-rendered without a WebGL context.
  *
  * @param {{
- *   format: 'fbx' | 'gltf' | 'obj' | 'stl',
+ *   format: 'fbx' | 'gltf' | 'obj' | 'stl' | 'dae',
  *   content?: { kind?: string, data?: Uint8Array | ArrayBuffer | string },
  *   renderer?: { revision?: number, loaded?: (version?: unknown) => void, failed?: () => void },
  *   loadBytes?: (address: string, signal: AbortSignal) => Promise<object>,
@@ -345,7 +345,7 @@ function ModelViewer(props) {
 /**
  * Build a viewer component bound to one document format.
  *
- * @param {'fbx' | 'gltf' | 'obj' | 'stl'} format Registered format name.
+ * @param {'fbx' | 'gltf' | 'obj' | 'stl' | 'dae'} format Registered format name.
  * @returns {(props: object) => unknown} Slot body component.
  */
 function createViewer(format) {
@@ -367,10 +367,14 @@ export const GltfViewer = createViewer('gltf');
 /** STL document body. */
 export const StlViewer = createViewer('stl');
 
+/** COLLADA document body. */
+export const DaeViewer = createViewer('dae');
+
 /** Slot bodies keyed by the format registry id. */
 export const VIEWER_COMPONENTS = Object.freeze({
   fbx: FbxViewer,
   obj: ObjViewer,
   gltf: GltfViewer,
   stl: StlViewer,
+  dae: DaeViewer,
 });

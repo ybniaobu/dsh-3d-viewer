@@ -9,7 +9,7 @@
 /**
  * @typedef {{
  *   id: string,
- *   format: 'fbx' | 'obj' | 'gltf' | 'stl',
+ *   format: 'fbx' | 'obj' | 'gltf' | 'stl' | 'dae',
  *   extensions: readonly string[],
  *   titleKey: string,
  *   badgeKey: string,
@@ -53,6 +53,14 @@ export const FORMATS = Object.freeze({
     badgeKey: 'stlBadge',
     label: 'STL',
   }),
+  dae: Object.freeze({
+    id: 'dsh-3d-viewer/dae',
+    format: 'dae',
+    extensions: Object.freeze(['dae']),
+    titleKey: 'daeRendererTitle',
+    badgeKey: 'daeBadge',
+    label: 'DAE',
+  }),
 });
 
 /** Registration order, which is also the order of the sidebar preview list. */
@@ -68,12 +76,12 @@ export const FORMAT_ENTRIES = Object.freeze(FORMAT_IDS.map((id) => FORMATS[id]))
  * matching the previous default of the single viewer component.
  *
  * @param {unknown} value Requested format.
- * @returns {'fbx' | 'obj' | 'gltf' | 'stl'} A registered format.
+ * @returns {'fbx' | 'obj' | 'gltf' | 'stl' | 'dae'} A registered format.
  */
 export function normalizeFormat(value) {
   if (value === 'glb') return 'gltf';
   return typeof value === 'string' && Object.hasOwn(FORMATS, value)
-    ? /** @type {'fbx' | 'obj' | 'gltf' | 'stl'} */ (value)
+    ? /** @type {'fbx' | 'obj' | 'gltf' | 'stl' | 'dae'} */ (value)
     : 'fbx';
 }
 

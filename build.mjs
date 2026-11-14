@@ -92,6 +92,7 @@ const CHUNK_ENTRIES = Object.freeze({
   obj: 'src/loaders/obj.js',
   gltf: 'src/loaders/gltf.js',
   stl: 'src/loaders/stl.js',
+  dae: 'src/loaders/dae.js',
   'tex-tga': 'src/loaders/chunks/tex-tga.js',
   'tex-exr': 'src/loaders/chunks/tex-exr.js',
   'tex-hdr': 'src/loaders/chunks/tex-hdr.js',

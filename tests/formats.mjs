@@ -8,9 +8,9 @@ import {
   normalizeFormat,
 } from '../src/formats.js';
 
-assert.deepEqual(FORMAT_IDS, ['fbx', 'obj', 'gltf', 'stl']);
+assert.deepEqual(FORMAT_IDS, ['fbx', 'obj', 'gltf', 'stl', 'dae']);
 assert.deepEqual(FORMAT_ENTRIES.map((entry) => entry.format), FORMAT_IDS);
-assert.equal(new Set(FORMAT_ENTRIES.map((entry) => entry.id)).size, 4, 'format ids must be unique');
+assert.equal(new Set(FORMAT_ENTRIES.map((entry) => entry.id)).size, 5, 'format ids must be unique');
 
 for (const entry of FORMAT_ENTRIES) {
   assert.ok(entry.extensions.length > 0, `${entry.format} needs at least one extension`);
@@ -22,6 +22,8 @@ for (const entry of FORMAT_ENTRIES) {
 }
 
 assert.deepEqual(FORMATS.gltf.extensions, ['gltf', 'glb']);
+assert.deepEqual(FORMATS.dae.extensions, ['dae']);
+assert.equal(normalizeFormat('dae'), 'dae');
 
 assert.equal(normalizeFormat('obj'), 'obj');
 assert.equal(normalizeFormat('glb'), 'gltf', 'GLB should use the glTF viewer');

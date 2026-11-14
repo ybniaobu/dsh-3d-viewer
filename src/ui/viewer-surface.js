@@ -21,7 +21,7 @@ const h = React.createElement;
  * without a canvas or a WebGL context.
  *
  * @param {{
- *   format: 'fbx' | 'gltf' | 'obj' | 'stl',
+ *   format: 'fbx' | 'gltf' | 'obj' | 'stl' | 'dae',
  *   glb: boolean,
  *   t: (key: string, params?: Record<string, unknown>) => string,
  *   view: object | null,

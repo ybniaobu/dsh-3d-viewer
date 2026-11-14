@@ -7,7 +7,7 @@ English | [中文](https://github.com/ybniaobu/dsh-3d-viewer/blob/main/README.zh
 
 [![GitHub](https://img.shields.io/badge/GitHub-ybniaobu-181717?logo=github&logoColor=white&style=flat-square)](https://github.com/ybniaobu/dsh-3d-viewer) [![npm](https://img.shields.io/badge/npm-dsh--3d--viewer-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/dsh-3d-viewer?activeTab=readme)
 
-Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, and STL models, plus TGA, EXR, HDR, PNG, and JPEG textures. Orbit, zoom, switch camera views, materials and environments, and play embedded animations.
+Preview 3D models and textures from the session workspace in DSH's right sidebar. Supported formats include FBX, OBJ, glTF, GLB, STL, and DAE models, plus TGA, EXR, HDR, PNG, and JPEG textures. Orbit, zoom, switch camera views, materials and environments, and play embedded animations.
 
 ![3D Viewer preview](https://raw.githubusercontent.com/ybniaobu/dsh-3d-viewer/main/assets/preview.gif)
 
@@ -59,6 +59,7 @@ Large files and the first environment switch may take a few seconds. If no previ
 | **OBJ** | Polygons, groups, normals, UVs, vertex colors, lines/points, MTL, common textures |
 | **glTF / GLB** | Animations, skinning, embedded resources, external `.bin` files and textures |
 | **STL** | ASCII and binary, neutral PBR material, binary vertex colors |
+| **DAE** | COLLADA meshes, materials, external textures, and animations |
 
 Notes:
 

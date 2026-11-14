@@ -22,6 +22,7 @@ const loaders = {
   obj: 'loadObjModel',
   gltf: 'loadGltfModel',
   stl: 'loadStlModel',
+  dae: 'loadDaeModel',
 };
 const textureLoaders = {
   'tex-tga': 'decodeTga',
