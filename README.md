@@ -35,7 +35,7 @@ Plugins run inside the DSH process; install only trusted sources.
 
 ### Requirements
 
-- DSH Desktop 0.2.2-rc.1 or newer.
+- DSH Desktop 0.2.2-rc.3 or newer.
 - WebGL 2.
 - The model or texture must be in the session workspace.
 

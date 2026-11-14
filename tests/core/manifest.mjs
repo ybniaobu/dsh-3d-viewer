@@ -21,7 +21,7 @@ assert.ok(pkg.files.includes('assets/hdri'), 'HDRI files must be packaged for th
 assert.ok(!pkg.files.includes('src'), 'source is not needed at runtime');
 assert.ok(!pkg.files.includes('scripts'), 'build scripts are not needed at runtime');
 // DSH reads engines.dsh and blocks installation/activation below the range.
-assert.equal(pkg.engines?.dsh, '>=0.2.2-rc.1', 'DSH Desktop compatibility must be declared');
+assert.equal(pkg.engines?.dsh, '>=0.2.2-rc.3', 'DSH Desktop compatibility must be declared');
 
 const license = await readFile(resolve(root, 'LICENSE'), 'utf8');
 assert.match(license, /^MIT License\r?\n/);

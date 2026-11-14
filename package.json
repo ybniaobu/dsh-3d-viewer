@@ -1,13 +1,17 @@
 {
   "name": "dsh-3d-viewer",
   "version": "0.2.2",
-  "description": "Render FBX, OBJ, glTF, GLB, and STL models plus TGA, EXR, and HDR textures from the right Sidebar's workspace file tree in an orbitable view.",
+  "description": "Render FBX, OBJ, glTF, GLB, DAE, and STL models plus PNG, JPEG, TGA, EXR, and HDR textures from the right Sidebar's workspace file tree in an orbitable view.",
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
     "3d-viewer",
+    "collada",
+    "dae",
     "texture",
+    "png",
+    "jpeg",
     "tga",
     "exr",
     "hdr"
@@ -66,7 +70,7 @@
     "three": "^0.187.0"
   },
   "engines": {
-    "dsh": ">=0.2.2-rc.1"
+    "dsh": ">=0.2.2-rc.3"
   },
   "license": "MIT"
 }
