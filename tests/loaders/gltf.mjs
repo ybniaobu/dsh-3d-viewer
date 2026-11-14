@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial, PlaneGeometry } from 'three';
-import { hideBakedShadowPlanes, loadGltfModel } from '../../src/loaders/gltf.js';
-import { collectModelStats, disposeObject } from '../../src/model.js';
+import { hideBakedShadowPlanes, loadGltfModel } from '../../src/loaders/formats/gltf.js';
+import { collectModelStats, disposeObject } from '../../src/core/model.js';
 
 if (typeof globalThis.ProgressEvent === 'undefined') {
   globalThis.ProgressEvent = class ProgressEvent extends Event {

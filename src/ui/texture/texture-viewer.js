@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { StatusOverlay } from './chrome.js';
-import { CSS } from './styles.js';
-import { en } from './dictionaries.js';
-import { loadViewerRuntime } from './viewer-runtime.js';
+import { StatusOverlay } from '../chrome.js';
+import { CSS } from '../styles.js';
+import { en } from '../dictionaries.js';
+import { loadViewerRuntime } from '../viewer-runtime.js';
 import {
   getCachedPreview,
   previewCacheBudget,

@@ -7,7 +7,7 @@ import {
   mimeOf,
   toArrayBuffer,
   toBytes,
-} from '../../src/bytes.js';
+} from '../../src/core/bytes.js';
 
 assert.equal(decodeLocalPath('textures/a%20b.png?x=1#frag'), 'textures/a b.png');
 assert.equal(decodeLocalPath('C:\\models\\wood.png'), 'C:/models/wood.png');

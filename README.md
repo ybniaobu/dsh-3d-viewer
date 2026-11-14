@@ -92,11 +92,12 @@ Notes:
 | Area | Main files |
 | --- | --- |
 | Host and package | `index.js`, `cordis.patch.yml`, `package.json` |
-| Client registration | `src/client.js`, `src/formats.js`, `src/texture-formats.js` |
+| Core | `src/core/`: byte helpers, formats, model statistics |
+| Client registration | `src/client.js`, `src/core/formats.js`, `src/core/texture-formats.js` |
 | Lazy runtime | `src/runtime.js`, `src/ui/viewer-runtime.js`, `src/loaders/address.js` |
-| UI | `src/ui/`: viewer, toolbar, texture preview, animation, preferences |
+| UI | `src/ui/`: chrome, controls, preferences; `ui/model/` and `ui/texture/` for the two viewers |
 | Scene | `src/scene/`: renderer, camera, materials, environment, grid, post-processing |
-| Loaders | `src/loaders/`: format dispatch, workspace reads, texture workers |
+| Loaders | `src/loaders/`: dispatch, workspace reads, texture workers, `formats/` loaders |
 | Vendored code | `src/vendor/`: modified FBX loader |
 | Build and tests | `build.mjs`, `tests/run.mjs`, `tests/**/*.mjs` |
 

@@ -4,8 +4,8 @@ import {
   MeshStandardMaterial,
 } from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { abortError, toArrayBuffer } from '../bytes.js';
-import { disposeObject } from '../model.js';
+import { abortError, toArrayBuffer } from '../../core/bytes.js';
+import { disposeObject } from '../../core/model.js';
 
 /**
  * Parse one complete STL file (ASCII or binary) into a single mesh.

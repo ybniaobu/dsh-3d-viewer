@@ -92,11 +92,12 @@
 | 区域 | 主要文件 |
 | --- | --- |
 | 宿主与打包 | `index.js`、`cordis.patch.yml`、`package.json` |
-| 客户端注册 | `src/client.js`、`src/formats.js`、`src/texture-formats.js` |
+| 核心 | `src/core/`：字节工具、格式注册、模型统计 |
+| 客户端注册 | `src/client.js`、`src/core/formats.js`、`src/core/texture-formats.js` |
 | 懒加载运行时 | `src/runtime.js`、`src/ui/viewer-runtime.js`、`src/loaders/address.js` |
-| UI | `src/ui/`：查看器、工具栏、纹理预览、动画、偏好 |
+| UI | `src/ui/`：框架、控件、偏好；`ui/model/` 与 `ui/texture/` 分别为两个查看器 |
 | 场景 | `src/scene/`：渲染器、相机、材质、环境、网格、后处理 |
-| 加载器 | `src/loaders/`：格式分派、工作区读取、纹理 Worker |
+| 加载器 | `src/loaders/`：格式分派、工作区读取、纹理 Worker，`formats/` 为格式加载器 |
 | 第三方代码 | `src/vendor/`：修改过的 FBX Loader |
 | 构建与测试 | `build.mjs`、`tests/run.mjs`、`tests/**/*.mjs` |
 

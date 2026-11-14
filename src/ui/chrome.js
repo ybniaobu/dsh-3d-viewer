@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { badgeKeyFor } from '../formats.js';
+import { badgeKeyFor } from '../core/formats.js';
 import {
   CubeIcon,
   FrameIcon,

@@ -1,8 +1,8 @@
-import { FORMAT_ENTRIES } from './formats.js';
-import { TEXTURE_FORMAT_ENTRIES } from './texture-formats.js';
+import { FORMAT_ENTRIES } from './core/formats.js';
+import { TEXTURE_FORMAT_ENTRIES } from './core/texture-formats.js';
 import { parseFileAddress } from './loaders/address.js';
-import { VIEWER_COMPONENTS } from './ui/model-viewer.js';
-import { TEXTURE_VIEWER_COMPONENTS } from './ui/texture-viewer.js';
+import { VIEWER_COMPONENTS } from './ui/model/model-viewer.js';
+import { TEXTURE_VIEWER_COMPONENTS } from './ui/texture/texture-viewer.js';
 import { de, en, es, fr, ja, pt, ru, zh } from './ui/dictionaries.js';
 import { loadViewerRuntime } from './ui/viewer-runtime.js';
 
@@ -374,7 +374,7 @@ async function readDocumentBytes(ctx, address, signal) {
  *
  * @param {import('@deepseek-ai/cordis').Context} ctx Owning Client context.
  * @param {(key: string) => string} t Namespace-bound translator.
- * @param {import('./formats.js').FormatDefinition | import('./texture-formats.js').TextureFormatDefinition} entry Format definition.
+ * @param {import('./core/formats.js').FormatDefinition | import('./core/texture-formats.js').TextureFormatDefinition} entry Format definition.
  * @param {(props: object) => unknown} component Slot body component.
  */
 function registerPreview(ctx, t, entry, component) {

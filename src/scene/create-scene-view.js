@@ -1,6 +1,6 @@
 import { PerspectiveCamera, Scene, Spherical, Vector3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { disposeObject } from '../model.js';
+import { disposeObject } from '../core/model.js';
 import { createAnimationController } from './animation.js';
 import {
   enableReversedDepth,
@@ -50,7 +50,7 @@ const CAMERA_VIEWS = Object.freeze({
  *
  * @param {HTMLElement} host Element that will own the canvas.
  * @param {import('three').Object3D} object Parsed FBX graph.
- * @param {ReturnType<import('../model.js').collectModelStats>} stats Model bounds and counts.
+ * @param {ReturnType<import('../core/model.js').collectModelStats>} stats Model bounds and counts.
  * @param {{ ariaLabel?: string, environment?: string }} [options] Localized accessibility text and initial IBL environment.
  * Animation listeners receive a reused state object; read it synchronously.
  * Camera listeners likewise receive a reused quaternion object.

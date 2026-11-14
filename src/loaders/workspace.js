@@ -17,7 +17,7 @@ import {
   mimeOf,
   toArrayBuffer,
   warn,
-} from '../bytes.js';
+} from '../core/bytes.js';
 import { asyncChunk } from './chunk-require.js';
 import { parseFileAddress } from './address.js';
 

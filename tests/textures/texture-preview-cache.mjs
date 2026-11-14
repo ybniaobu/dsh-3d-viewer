@@ -4,7 +4,7 @@ import {
   previewCacheBudget,
   previewCacheKey,
   setCachedPreview,
-} from '../../src/ui/texture-preview-cache.js';
+} from '../../src/ui/texture/texture-preview-cache.js';
 
 const image = (bytes) => ({ data: { byteLength: bytes } });
 const key = (name) => previewCacheKey(`dsh-resource://file/session/s/${name}`, 1, 'exr');

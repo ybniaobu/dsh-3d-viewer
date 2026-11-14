@@ -6,7 +6,7 @@ import {
   badgeKeyFor,
   isGlbAddress,
   normalizeFormat,
-} from '../../src/formats.js';
+} from '../../src/core/formats.js';
 
 assert.deepEqual(FORMAT_IDS, ['fbx', 'obj', 'gltf', 'stl', 'dae']);
 assert.deepEqual(FORMAT_ENTRIES.map((entry) => entry.format), FORMAT_IDS);

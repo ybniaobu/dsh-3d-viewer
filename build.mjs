@@ -88,11 +88,11 @@ console.log(`Built dist/${runtimeName} (${Buffer.byteLength(runtimeWrapped)} byt
 // receive the entry bundle's Three instance through a tiny require shim, so a
 // format is only downloaded when it is first opened.
 const CHUNK_ENTRIES = Object.freeze({
-  fbx: 'src/loaders/fbx.js',
-  obj: 'src/loaders/obj.js',
-  gltf: 'src/loaders/gltf.js',
-  stl: 'src/loaders/stl.js',
-  dae: 'src/loaders/dae.js',
+  fbx: 'src/loaders/formats/fbx.js',
+  obj: 'src/loaders/formats/obj.js',
+  gltf: 'src/loaders/formats/gltf.js',
+  stl: 'src/loaders/formats/stl.js',
+  dae: 'src/loaders/formats/dae.js',
   'tex-tga': 'src/loaders/chunks/tex-tga.js',
   'tex-exr': 'src/loaders/chunks/tex-exr.js',
   'tex-hdr': 'src/loaders/chunks/tex-hdr.js',

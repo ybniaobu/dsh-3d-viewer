@@ -1,8 +1,8 @@
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { abortError, decodeText, warn } from '../bytes.js';
-import { disposeObject } from '../model.js';
-import { createWorkspaceAssetLoader, readWithBasenameFallback } from './workspace.js';
+import { abortError, decodeText, warn } from '../../core/bytes.js';
+import { disposeObject } from '../../core/model.js';
+import { createWorkspaceAssetLoader, readWithBasenameFallback } from '../workspace.js';
 
 /**
  * Read every `mtllib` filename in an OBJ document.

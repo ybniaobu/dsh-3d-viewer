@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { loadModelBytes } from '../../src/loaders/model-loader.js';
-import { loadObjModel } from '../../src/loaders/obj.js';
+import { loadObjModel } from '../../src/loaders/formats/obj.js';
 import { parseFileAddress } from '../../src/loaders/workspace.js';
-import { disposeObject } from '../../src/model.js';
+import { disposeObject } from '../../src/core/model.js';
 
 globalThis.__DSH3DV_REQUIRE__ = {
   async: async () => ({ loadObjModel }),

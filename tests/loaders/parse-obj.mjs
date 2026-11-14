@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { collectModelStats, disposeObject } from '../../src/model.js';
-import { parseObjBytes } from '../../src/loaders/obj.js';
+import { collectModelStats, disposeObject } from '../../src/core/model.js';
+import { parseObjBytes } from '../../src/loaders/formats/obj.js';
 
 const encoder = new TextEncoder();
 const square = `# unit square

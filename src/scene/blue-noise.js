@@ -6,7 +6,7 @@ import {
   RepeatWrapping,
   UnsignedByteType,
 } from 'three';
-import { decodeBase64 } from '../bytes.js';
+import { decodeBase64 } from '../core/bytes.js';
 
 /** Edge length of the embedded 8-bit blue-noise mask. */
 export const BLUE_NOISE_SIZE = 64;

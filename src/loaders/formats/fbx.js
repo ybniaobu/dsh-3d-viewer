@@ -1,7 +1,7 @@
-import { abortError, toArrayBuffer, warn } from '../bytes.js';
-import { disposeObject } from '../model.js';
-import { FBXLoader } from '../vendor/fbx-loader-pbr.js';
-import { createWorkspaceAssetLoader } from './workspace.js';
+import { abortError, toArrayBuffer, warn } from '../../core/bytes.js';
+import { disposeObject } from '../../core/model.js';
+import { FBXLoader } from '../../vendor/fbx-loader-pbr.js';
+import { createWorkspaceAssetLoader } from '../workspace.js';
 
 /**
  * Parse one complete FBX file with Three.js.

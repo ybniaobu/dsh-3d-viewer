@@ -1,7 +1,7 @@
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
-import { abortError, decodeText, warn } from '../bytes.js';
-import { disposeObject } from '../model.js';
-import { createWorkspaceAssetLoader } from './workspace.js';
+import { abortError, decodeText, warn } from '../../core/bytes.js';
+import { disposeObject } from '../../core/model.js';
+import { createWorkspaceAssetLoader } from '../workspace.js';
 
 /**
  * Parse one complete COLLADA document.

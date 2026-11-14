@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { PauseIcon, PlayIcon } from './icons.js';
-import { formatSeconds } from './primitives.js';
+import { PauseIcon, PlayIcon } from '../icons.js';
+import { formatSeconds } from '../primitives.js';
 
 const h = React.createElement;
 export const SPEEDS = Object.freeze([0.5, 0.75, 1, 1.5, 2]);

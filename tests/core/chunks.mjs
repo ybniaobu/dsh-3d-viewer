@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { disposeObject } from '../../src/model.js';
+import { disposeObject } from '../../src/core/model.js';
 import * as THREE_BRIDGE from '../../src/loaders/three-bridge.js';
 import { createWorkspaceAssetLoader } from '../../src/loaders/workspace.js';
-import { textureImageData } from '../../src/ui/texture-viewer.js';
+import { textureImageData } from '../../src/ui/texture/texture-viewer.js';
 
 globalThis.__DSH3DV_THREE__ = { ...THREE_BRIDGE, __esModule: true };
 globalThis.window = { innerWidth: 1024, innerHeight: 768 };

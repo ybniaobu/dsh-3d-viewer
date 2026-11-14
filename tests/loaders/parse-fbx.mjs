@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-const { collectModelStats, disposeObject } = await import('../../src/model.js');
-const { parseFbxBytes } = await import('../../src/loaders/fbx.js');
+const { collectModelStats, disposeObject } = await import('../../src/core/model.js');
+const { parseFbxBytes } = await import('../../src/loaders/formats/fbx.js');
 
 const sampleUrl = new URL('../../samples/PreviewSphere.fbx', import.meta.url);
 if (!existsSync(fileURLToPath(sampleUrl))) {

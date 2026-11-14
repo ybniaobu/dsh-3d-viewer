@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { isGlbAddress, normalizeFormat } from '../formats.js';
-import { ViewerError } from '../scene/viewer-error.js';
-import { en } from './dictionaries.js';
-import { DEFAULT_SETTINGS } from './options.js';
+import { isGlbAddress, normalizeFormat } from '../../core/formats.js';
+import { ViewerError } from '../../scene/viewer-error.js';
+import { en } from '../dictionaries.js';
+import { DEFAULT_SETTINGS } from '../options.js';
 import { ViewerSurface } from './viewer-surface.js';
-import { loadViewerRuntime } from './viewer-runtime.js';
-import { loadViewerPreferences, saveViewerPreferences } from './viewer-preferences.js';
+import { loadViewerRuntime } from '../viewer-runtime.js';
+import { loadViewerPreferences, saveViewerPreferences } from '../viewer-preferences.js';
 
 const h = React.createElement;
 const ENVIRONMENT_WAIT_MS = 3000;

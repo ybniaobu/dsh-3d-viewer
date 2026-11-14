@@ -8,8 +8,8 @@ import {
   StatusOverlay,
   Toolbar,
   ViewControls,
-} from './chrome.js';
-import { CSS } from './styles.js';
+} from '../chrome.js';
+import { CSS } from '../styles.js';
 
 const h = React.createElement;
 

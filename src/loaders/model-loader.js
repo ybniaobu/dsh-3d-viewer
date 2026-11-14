@@ -1,4 +1,4 @@
-import { stripEmbeddedSceneNodes } from '../model.js';
+import { stripEmbeddedSceneNodes } from '../core/model.js';
 import { asyncChunk } from './chunk-require.js';
 
 /**

@@ -9,9 +9,9 @@ import {
   toArrayBuffer,
   toBytes,
   warn,
-} from '../bytes.js';
-import { disposeObject } from '../model.js';
-import { WHITE_PIXEL } from './workspace.js';
+} from '../../core/bytes.js';
+import { disposeObject } from '../../core/model.js';
+import { WHITE_PIXEL } from '../workspace.js';
 
 /**
  * Extract the JSON chunk of a binary GLB container.

@@ -8,8 +8,8 @@ import {
   PerspectiveCamera,
 } from 'three';
 import { loadModelBytes } from '../../src/loaders/model-loader.js';
-import { loadGltfModel } from '../../src/loaders/gltf.js';
-import { disposeObject, stripEmbeddedSceneNodes } from '../../src/model.js';
+import { loadGltfModel } from '../../src/loaders/formats/gltf.js';
+import { disposeObject, stripEmbeddedSceneNodes } from '../../src/core/model.js';
 
 globalThis.__DSH3DV_REQUIRE__ = {
   async: async () => ({ loadGltfModel }),

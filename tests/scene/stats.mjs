@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Box3, BufferAttribute, BufferGeometry, Group, Mesh, Scene, Vector3 } from 'three';
-import { collectModelStats } from '../../src/model.js';
+import { collectModelStats } from '../../src/core/model.js';
 import { createGround, niceGridStep } from '../../src/scene/ground.js';
 
 const group = new Group();
