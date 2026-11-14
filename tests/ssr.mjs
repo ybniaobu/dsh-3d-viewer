@@ -153,6 +153,7 @@ assert.match(CSS, /\.dsh3dv-speed-menu\{[^}]*right:-6px[^}]*width:48px[^}]*min-w
 assert.match(CSS, /\.dsh3dv-speed-menu \.dsh3dv-anim-option\{[^}]*text-align:center/);
 assert.match(CSS, /\.dsh3dv-texture-actions\{[^}]*flex-wrap:wrap/);
 assert.match(CSS, /\.dsh3dv-texture-controls\{[^}]*flex-wrap:nowrap/);
+assert.match(CSS, /\.dsh3dv-texture-meta-size,\.dsh3dv-texture-meta-zoom\{white-space:nowrap\}/);
 assert.match(CSS, /\.dsh3dv-top\{[^}]*flex-wrap:wrap/);
 const readyHtml = renderToStaticMarkup(React.createElement(ViewerSurface, {
   format: 'obj',
