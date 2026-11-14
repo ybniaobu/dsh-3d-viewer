@@ -342,6 +342,10 @@ export async function decodeTextureInWorker(format, data, fallback, options = {}
       state.pendingRequests.set(id, request);
       entry.pending.add(id);
       signal?.addEventListener('abort', request.onAbort, { once: true });
+      if (signal?.aborted === true) {
+        request.onAbort();
+        return;
+      }
       try {
         entry.worker.postMessage({ id, format, bytes: buffer }, [buffer]);
         transferred = transfer

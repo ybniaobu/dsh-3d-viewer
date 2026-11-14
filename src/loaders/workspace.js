@@ -514,6 +514,7 @@ export function createWorkspaceAssetLoader({ readFile, signal, onWarn = warn }) 
     const abortPromise = new Promise((resolve) => {
       stopWaiting = resolve;
       signal?.addEventListener('abort', resolve, { once: true });
+      if (signal?.aborted === true) resolve();
     });
     try {
       await Promise.race([Promise.allSettled([...pending]), timeoutPromise, abortPromise]);

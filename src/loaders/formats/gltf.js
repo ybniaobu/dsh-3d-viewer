@@ -187,11 +187,11 @@ export function hideBakedShadowPlanes(object) {
     const transparent = materials === null
       ? material !== null && material !== undefined
         && (material.transparent === true || material.opacity < 1)
-      : materials.some((entry) => entry !== null
+      : materials.some((entry) => entry !== null && entry !== undefined
         && (entry.transparent === true || entry.opacity < 1));
     if (!transparent) return;
 
-    let label = child.name;
+    let label = child.name ?? '';
     if (materials === null) {
       if (material?.name) label += ` ${material.name}`;
     } else {

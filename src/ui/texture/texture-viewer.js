@@ -251,6 +251,7 @@ function drawImageData(canvas, image, flipY = false, sourceCanvasRef, sourceImag
     canvas.height = image.height;
   }
   const context = contextFor(canvas);
+  context.setTransform(1, 0, 0, 1, 0, 0);
 
   if (!flipY) {
     context.putImageData(image, 0, 0);
@@ -289,6 +290,8 @@ function drawPreviewImage(canvas, image, flipY = false, sourceCanvasRef, sourceI
     canvas.height = image.height;
   }
   const context = contextFor(canvas);
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width, canvas.height);
   if (!flipY) {
     context.drawImage(image, 0, 0);
     return;
