@@ -737,27 +737,26 @@ function TextureViewer(props) {
     h('span', { className: 'dsh3dv-badge' }, t(`${format}Badge`)),
     h('div', { className: 'dsh3dv-texture-actions' },
       ready
-        ? h('button', {
-          type: 'button',
-          className: 'dsh3dv-texture-fit',
-          onClick: resetView,
-          title: t('textureFit'),
-          'aria-label': t('textureFit'),
-        }, t('textureFit'))
-        : null,
-      ready
-        ? h('button', {
-          type: 'button',
-          className: 'dsh3dv-texture-fit',
-          'aria-pressed': flipY ? 'true' : 'false',
-          onClick: () => setFlipY((value) => {
-            const next = !value;
-            flipYRef.current = next;
-            return next;
-          }),
-          title: t('textureFlipY'),
-          'aria-label': t('textureFlipY'),
-        }, t('textureFlipY'))
+        ? h('div', { className: 'dsh3dv-texture-controls' },
+          h('button', {
+            type: 'button',
+            className: 'dsh3dv-texture-fit',
+            onClick: resetView,
+            title: t('textureFit'),
+            'aria-label': t('textureFit'),
+          }, t('textureFit')),
+          h('button', {
+            type: 'button',
+            className: 'dsh3dv-texture-fit',
+            'aria-pressed': flipY ? 'true' : 'false',
+            onClick: () => setFlipY((value) => {
+              const next = !value;
+              flipYRef.current = next;
+              return next;
+            }),
+            title: t('textureFlipY'),
+            'aria-label': t('textureFlipY'),
+          }, t('textureFlipY')))
         : null,
       ready
         ? h('span', { className: 'dsh3dv-badge' },
